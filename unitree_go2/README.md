@@ -8,7 +8,7 @@
     --env="DISPLAY" --env="QT_X11_NO_MITSHM=1" \
     --volume="$HOME/.Xauthority:/root/.Xauthority:rw" \
     --device /dev/dri --group-add video \
-    unitree_ros_noetic```
+    unitree_go2```
 
 ### Start the simulation:
 Run `roslaunch unitree_gazebo normal.launch rname:=go2 wname:=earth`
