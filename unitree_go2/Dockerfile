@@ -41,6 +41,8 @@ RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && catkin_make"
 RUN echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> /root/.bashrc
 RUN echo "source $CATKIN_WS/devel/setup.bash" >> /root/.bashrc
 
+WORKDIR /media
+
 # entrypoint
 CMD ["/bin/bash"]
 
