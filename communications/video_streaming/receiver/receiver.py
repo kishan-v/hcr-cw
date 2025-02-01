@@ -1,18 +1,14 @@
 import asyncio
 import subprocess
 import time
-import argparse
 
 import cv2
 import numpy as np
 
-parser = argparse.ArgumentParser(description="Video streaming transmitter")
-parser.add_argument("--ip", default="130.162.176.219", help="Server IP address")
-parser.add_argument("--port", type=int, default=5001, help="Server port")
-args = parser.parse_args()
+from config import VIDEO_STREAM_PARAMS, SERVER_CONFIG
 
-SERVER_IP = args.ip
-SERVER_PORT = int(args.port)
+SERVER_IP = str(SERVER_CONFIG["ip"])
+SERVER_PORT = int(SERVER_CONFIG["port"])
 
 
 class VideoStreamParams:
@@ -130,10 +126,7 @@ async def receive_video_and_display(params: VideoStreamParams):
 
 
 def main():
-    # Starting with smaller resolution to debug
-    params = VideoStreamParams(
-        width=1280, height=720, framerate=30, pixel_format="bgr24", latency=50
-    )
+    params = VideoStreamParams(**VIDEO_STREAM_PARAMS)
 
     try:
         asyncio.run(receive_video_and_display(params))

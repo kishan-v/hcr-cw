@@ -1,36 +1,14 @@
 #!/usr/bin/env python3
-import argparse
 import asyncio
 import json
 
 # --- Device Configuration Dictionaries ---
 # All ffmpeg options for input and output are stored in lists.
 # This makes it easy to modify parameters and to construct the ffmpeg command.
-from configs.macbook_config import MACBOOK_CONFIG
-from configs.ricoh_theta_config import THETA_CONFIG
+from config import DEVICE_CONFIG, SERVER_CONFIG
 
-
-parser = argparse.ArgumentParser(description="Video streaming transmitter")
-parser.add_argument("--ip", default="130.162.176.219", help="Server IP address")
-parser.add_argument("--port", type=int, default=5000, help="Server port")
-parser.add_argument(
-    "--device",
-    choices=["macbook", "theta"],
-    default="macbook",
-    help="Select which device configuration to use.",
-)
-args = parser.parse_args()
-
-SERVER_IP = args.ip
-SERVER_PORT = args.port
-
-# Select the configuration based on the command-line argument.
-if args.device == "macbook":
-    DEVICE_CONFIG = MACBOOK_CONFIG
-elif args.device == "theta":
-    DEVICE_CONFIG = THETA_CONFIG
-else:
-    raise ValueError("Unknown device selected.")
+SERVER_IP = str(SERVER_CONFIG["ip"])
+SERVER_PORT = int(SERVER_CONFIG["port"])
 
 
 def print_stream_info():
