@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 import asyncio
 import json
+import argparse
 
 
-# Adjust these as appropriate
-SERVER_IP = "130.162.176.219"
-SERVER_PORT = 5000
+parser = argparse.ArgumentParser(description='Video streaming transmitter')
+parser.add_argument('--ip', default="130.162.176.219", help='Server IP address')
+parser.add_argument('--port', type=int, default=5000, help='Server port')
+args = parser.parse_args()
+
+SERVER_IP = args.ip
+SERVER_PORT = int(args.port)
 LATENCY = 50
 
 VIDEO_PARAMS = {

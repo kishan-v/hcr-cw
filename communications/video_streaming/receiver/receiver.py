@@ -1,12 +1,18 @@
 import asyncio
 import subprocess
 import time
+import argparse
 
 import cv2
 import numpy as np
 
-SERVER_IP = "130.162.176.219"
-SERVER_PORT = 5001
+parser = argparse.ArgumentParser(description="Video streaming transmitter")
+parser.add_argument("--ip", default="130.162.176.219", help="Server IP address")
+parser.add_argument("--port", type=int, default=5001, help="Server port")
+args = parser.parse_args()
+
+SERVER_IP = args.ip
+SERVER_PORT = int(args.port)
 
 
 class VideoStreamParams:
