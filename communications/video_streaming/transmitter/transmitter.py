@@ -1,39 +1,14 @@
 #!/usr/bin/env python3
+import argparse
 import asyncio
 import json
-import argparse
 
-# MacBook webcam configuration (using avfoundation on macOS)
-MACBOOK_CONFIG = {
-    "device": "0",  # default device identifier for the MacBook webcam
-    "input_format": "avfoundation",  # input format for the MacBook webcam
-    "width": 1280,
-    "height": 720,
-    "framerate": 30,
-    "pixel_format": "bgr24",  # used for any extra processing or logging
-    "latency": 50,
-    "ffmpeg_codec": "h264",  # using hardware-friendly codec options
-    "filter": (
-        "scale=1280:720,"
-        "drawtext=fontfile=/Library/Fonts/Arial.ttf: "  # macOS font path
-        "text='%{pts\\:hms}': "
-        "x=10: y=30: fontsize=24: fontcolor=white: box=1: boxcolor=black@0.5"
-    ),
-    # Additional ffmpeg options if needed can be added here.
-}
+# --- Device Configuration Dictionaries ---
+# All ffmpeg options for input and output are stored in lists.
+# This makes it easy to modify parameters and to construct the ffmpeg command.
+from configs.macbook_config import MACBOOK_CONFIG
+from configs.ricoh_theta_config import THETA_CONFIG
 
-# Ricoh Theta 360 configuration (using v4l2 on Linux, for example)
-THETA_CONFIG = {
-    "device": "/dev/video0",  # adjust to your device node for Theta
-    "input_format": "mjpeg",
-    "width": 1920,  # example resolution; set as needed for Theta
-    "height": 960,
-    "framerate": 30,
-    "latency": 50,
-    "ffmpeg_codec": "libx264",
-    "filter": None,  # No filter in this example; add if needed.
-    "crf": "18",  # Constant Rate Factor option for libx264
-}
 
 parser = argparse.ArgumentParser(description="Video streaming transmitter")
 parser.add_argument("--ip", default="130.162.176.219", help="Server IP address")
@@ -49,7 +24,7 @@ args = parser.parse_args()
 SERVER_IP = args.ip
 SERVER_PORT = args.port
 
-# Select the device configuration based on command-line argument.
+# Select the configuration based on the command-line argument.
 if args.device == "macbook":
     DEVICE_CONFIG = MACBOOK_CONFIG
 elif args.device == "theta":
@@ -62,9 +37,6 @@ def print_stream_info():
     """Print information needed by the receiver to properly decode the stream."""
     info = {
         "stream_parameters": {
-            "width": DEVICE_CONFIG["width"],
-            "height": DEVICE_CONFIG["height"],
-            "framerate": DEVICE_CONFIG["framerate"],
             "latency": DEVICE_CONFIG["latency"],
         },
         "connection": {"ip": SERVER_IP, "port": SERVER_PORT},
@@ -74,69 +46,22 @@ def print_stream_info():
 
 
 def build_transmit_command():
-    """Builds the ffmpeg command based on the device configuration."""
-    # Common SRT URL string for both configurations.
+    """
+    Build the ffmpeg command by concatenating the input and output option lists
+    from the device configuration along with the SRT URL.
+    """
     srt_url = (
         f"srt://{SERVER_IP}:{SERVER_PORT}?mode=caller"
         f"&latency={DEVICE_CONFIG['latency']}&peerlatency={DEVICE_CONFIG['latency']}"
     )
-
-    # Build command differently depending on the input format.
-    if DEVICE_CONFIG["input_format"] == "avfoundation":
-        # For macOS (MacBook webcam)
-        cmd = [
-            "ffmpeg",
-            "-f",
-            DEVICE_CONFIG["input_format"],
-            "-framerate",
-            str(DEVICE_CONFIG["framerate"]),
-            "-i",
-            DEVICE_CONFIG["device"],
-            "-vf",
-            DEVICE_CONFIG["filter"],
-            "-f",
-            "mpegts",
-            "-c:v",
-            DEVICE_CONFIG["ffmpeg_codec"],
-            "-preset",
-            "ultrafast",
-            "-tune",
-            "zerolatency",
-            srt_url,
-        ]
-    elif DEVICE_CONFIG["input_format"] == "mjpeg":
-        # For Ricoh Theta 360 (assuming a Linux environment with v4l2)
-        cmd = [
-            "ffmpeg",
-            "-f",
-            "v4l2",
-            "-input_format",
-            DEVICE_CONFIG["input_format"],
-            "-video_size",
-            f"{DEVICE_CONFIG['width']}x{DEVICE_CONFIG['height']}",
-            "-framerate",
-            str(DEVICE_CONFIG["framerate"]),
-            "-i",
-            DEVICE_CONFIG["device"],
-            "-c:v",
-            DEVICE_CONFIG["ffmpeg_codec"],
-            "-preset",
-            "ultrafast",
-            "-tune",
-            "zerolatency",
-            "-crf",
-            DEVICE_CONFIG["crf"],
-            "-f",
-            "mpegts",
-            srt_url,
-        ]
-    else:
-        raise ValueError("Unsupported input format in device configuration.")
-
-    return cmd
-
-
-# --- Async Transmit Function ---
+    # Start with 'ffmpeg', then add the options from the config,
+    # and finally the SRT URL as the destination.
+    return (
+        ["ffmpeg"]
+        + DEVICE_CONFIG["input_opts"]
+        + DEVICE_CONFIG["output_opts"]
+        + [srt_url]
+    )
 
 
 async def transmit():
@@ -144,20 +69,21 @@ async def transmit():
     max_retry_delay = 5
     print_stream_info()
 
-    while True:  # Keep trying to connect
+    while True:  # keep trying to connect/reconnect
         try:
             retry_delay = min(2**retry_count, max_retry_delay)
-            print(f"[TRANSMITTER] Attempt {retry_count + 1}, starting FFmpeg...")
-
-            TRANSMIT_COMMAND = build_transmit_command()
-            print(f"[TRANSMITTER] Running command: {' '.join(TRANSMIT_COMMAND)}")
+            cmd = build_transmit_command()
+            print(
+                f"[TRANSMITTER] Attempt {retry_count + 1}, running command:\n{' '.join(cmd)}"
+            )
 
             proc = await asyncio.create_subprocess_exec(
-                *TRANSMIT_COMMAND,
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
 
+            # Read and print ffmpeg's stderr output line by line.
             while True:
                 line = await proc.stderr.readline()
                 if not line:
@@ -165,12 +91,12 @@ async def transmit():
                     break
                 print(f"[FFmpeg TX] {line.decode('utf-8').rstrip()}")
 
-            # Clean up the process if it hasn't been terminated.
+            # Clean up the process
             try:
                 proc.terminate()
                 await proc.wait()
             except Exception as ex:
-                print(f"[TRANSMITTER] Exception during process cleanup: {ex}")
+                print(f"[TRANSMITTER] Exception during cleanup: {ex}")
 
             print(f"[TRANSMITTER] Waiting {retry_delay}s before reconnecting...")
             await asyncio.sleep(retry_delay)
