@@ -7,19 +7,20 @@ using UnityEngine;
 public class SRTReceiver : MonoBehaviour
 {
     [Header("FFmpeg Settings")]
-    public string ffmpegPath = "ffmpeg"; // Ensure ffmpeg is in your PATH or provide full path.
-    public string serverIP = "192.168.1.100"; // Replace with your Theta’s IP
-    public int serverPort = 9000;            // Replace with your stream’s port
-    public int latency = 50;                 // Adjust latency if needed
+    public string ffmpegPath = "ffmpeg"; // Full path if not in system PATH.
+    public string serverIP = "192.168.1.100"; // Your Theta's IP address.
+    public int serverPort = 9000;             // Port for your Theta SRT stream.
+    public int latency = 50;                  // Adjust based on your network.
 
     [Header("Video Stream Settings")]
     public int width = 1920;
     public int height = 1080;
     public int framerate = 30;
-    public string pixelFormat = "bgr24";     // For raw output (3 bytes per pixel)
-    
+    public string pixelFormat = "bgr24";      // Raw output format: 3 bytes per pixel.
+
+    // Internals for decoding video frames.
     private int frameSize;
-    private Texture2D videoTexture;
+    private Texture2D videoTexture;           // Will store one decoded frame.
     private Process ffmpegProcess;
     private Thread readThread;
     private byte[] frameBuffer;
@@ -27,24 +28,38 @@ public class SRTReceiver : MonoBehaviour
     private readonly object frameLock = new object();
     private volatile bool isRunning = false;
 
+    // Skybox-related fields.
+    private RenderTexture skyboxRenderTexture;
+    private Material skyboxMaterial;
+
     void Start()
     {
-        // Calculate expected frame size (3 channels: B, G, R)
-        frameSize = width * height * 3;
+        // Calculate expected frame size (width * height * channels)
+        frameSize = width * height * 3;  // for bgr24
 
-        // Create a Texture2D to hold the video frame data
+        // Create the Texture2D to temporarily hold raw frame data.
         videoTexture = new Texture2D(width, height, TextureFormat.RGB24, false);
-        // (Optionally, assign videoTexture to the material on your inverted sphere)
-        Renderer renderer = GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            renderer.material.mainTexture = videoTexture;
-        }
 
-        // Start FFmpeg to decode the SRT stream
+        // --- SKYBOX SETUP ---
+        // Create a RenderTexture programmatically.
+        skyboxRenderTexture = new RenderTexture(width, height, 0, RenderTextureFormat.Default);
+        skyboxRenderTexture.Create();
+
+        // Create a new material using Unity’s built-in panoramic skybox shader.
+        // This shader is intended for equirectangular images.
+        skyboxMaterial = new Material(Shader.Find("Skybox/Panoramic"));
+        // Assign our RenderTexture to the material.
+        skyboxMaterial.SetTexture("_MainTex", skyboxRenderTexture);
+        // Optionally, set additional parameters (rotation, exposure, etc.).
+        // Then assign the material as the active skybox.
+        RenderSettings.skybox = skyboxMaterial;
+
+        // --- END SKYBOX SETUP ---
+
+        // Start the FFmpeg process to read the Theta SRT stream.
         StartFFmpeg();
 
-        // Start a background thread to read frames from FFmpeg’s output
+        // Start the background thread to read raw frames from FFmpeg.
         isRunning = true;
         frameBuffer = new byte[frameSize];
         readThread = new Thread(ReadFrames);
@@ -54,13 +69,11 @@ public class SRTReceiver : MonoBehaviour
 
     void StartFFmpeg()
     {
+        // Build the FFmpeg command to connect to the SRT stream, scale the video,
+        // set the pixel format, and output raw video frames to stdout.
         ProcessStartInfo psi = new ProcessStartInfo
         {
             FileName = ffmpegPath,
-            // Build the FFmpeg arguments:
-            // - Input: SRT stream from Theta (modify query string as needed)
-            // - Scale the stream to the desired width and height
-            // - Set pixel format and output as raw video (pipe:1)
             Arguments = $"-y -fflags nobuffer -flags low_delay -strict experimental -thread_queue_size 512 -i \"srt://{serverIP}:{serverPort}?mode=caller&latency={latency}\" -vf scale={width}:{height} -pix_fmt {pixelFormat} -f rawvideo pipe:1",
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -71,7 +84,7 @@ public class SRTReceiver : MonoBehaviour
         ffmpegProcess = new Process { StartInfo = psi };
         ffmpegProcess.Start();
 
-        // Optionally, read and log errors from FFmpeg in a separate thread:
+        // Start a background thread to log FFmpeg's error output.
         Thread errorThread = new Thread(() =>
         {
             StreamReader errReader = ffmpegProcess.StandardError;
@@ -91,6 +104,7 @@ public class SRTReceiver : MonoBehaviour
         while (isRunning)
         {
             int offset = 0;
+            // Read exactly one frame from the FFmpeg output stream.
             while (offset < frameSize)
             {
                 try
@@ -98,7 +112,7 @@ public class SRTReceiver : MonoBehaviour
                     int bytesRead = stdout.Read(frameBuffer, offset, frameSize - offset);
                     if (bytesRead == 0)
                     {
-                        // End of stream or process exited.
+                        // If no bytes are read, the stream may have ended.
                         isRunning = false;
                         break;
                     }
@@ -113,7 +127,7 @@ public class SRTReceiver : MonoBehaviour
             }
             if (offset == frameSize)
             {
-                // Copy the frame into latestFrame so that Update() can process it.
+                // Copy the complete frame data to latestFrame.
                 byte[] frameCopy = new byte[frameSize];
                 Buffer.BlockCopy(frameBuffer, 0, frameCopy, 0, frameSize);
                 lock (frameLock)
@@ -126,16 +140,18 @@ public class SRTReceiver : MonoBehaviour
 
     void Update()
     {
-        // Check if a new frame has been received.
+        // If a new frame has been received, update our video texture.
         if (latestFrame != null)
         {
             lock (frameLock)
             {
-                // Load raw frame data into the texture.
                 videoTexture.LoadRawTextureData(latestFrame);
                 videoTexture.Apply();
                 latestFrame = null;
             }
+            // Now update the RenderTexture used by the skybox.
+            // This copies the updated Texture2D (videoTexture) into the skyboxRenderTexture.
+            Graphics.Blit(videoTexture, skyboxRenderTexture);
         }
     }
 
@@ -144,11 +160,19 @@ public class SRTReceiver : MonoBehaviour
         isRunning = false;
         if (readThread != null && readThread.IsAlive)
         {
-            readThread.Abort();
+            try
+            {
+                readThread.Abort();
+            }
+            catch { }
         }
         if (ffmpegProcess != null && !ffmpegProcess.HasExited)
         {
-            ffmpegProcess.Kill();
+            try
+            {
+                ffmpegProcess.Kill();
+            }
+            catch { }
         }
     }
 }
