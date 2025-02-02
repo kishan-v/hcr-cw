@@ -1,27 +1,31 @@
 import json
 import time
 import websocket
+import threading
 
-#TODO: need to add oracle server ip
-RELAYER_URL = "ws://<ORACLE_SERVER_IP>:9090"
+RELAYER_URL = "ws://132.145.67.221:9090"
 
 def on_open(ws):
-    command = {
-        "op": "command",
-        "topic": "teleop/cmd_vel",
-        "msg": {
-            "linear": {"x": 0.5, "y": 0.0, "z": 0.0},
-            "angular": {"x": 0.0, "y": 0.0, "z": 0.2},
-            "timestamp": time.time()
-        }
-    }
-    message = json.dumps(command)
-    ws.send(message)
-    print("Sent command:", message)
+    def run():
+        while True:
+            command = {
+                "op": "command",
+                "topic": "teleop/cmd_vel",
+                "msg": {
+                    "linear": {"x": 0.5, "y": 0.0, "z": 0.0},
+                    "angular": {"x": 0.0, "y": 0.0, "z": 0.2},
+                    "timestamp": time.time()
+                }
+            }
+            message = json.dumps(command)
+            ws.send(message)
+            print("Sent command:", message)
+            time.sleep(1)  
+    thread = threading.Thread(target=run)
+    thread.start()
 
 def on_message(ws, message):
     print("Received reply:", message)
-    ws.close()
 
 def on_error(ws, error):
     print("Error:", error)
