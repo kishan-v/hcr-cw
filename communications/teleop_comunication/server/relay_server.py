@@ -1,6 +1,7 @@
 import asyncio
 import websockets
 import json
+from websockets.protocol import State
 
 connected_clients = set()
 
@@ -13,7 +14,7 @@ async def handler(websocket, path=None):
             # Only forward the message if there is at least one other client.
             if len(connected_clients) > 1:
                 for client in connected_clients:
-                    if client != websocket and client.open:
+                    if client != websocket and client.state == State.OPEN:
                         try:
                             await client.send(message)
                         except Exception as e:
