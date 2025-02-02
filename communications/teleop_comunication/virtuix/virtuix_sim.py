@@ -3,7 +3,7 @@ import time
 import websocket
 import threading
 
-RELAYER_URL = "ws://132.145.67.221:9090"
+RELAYER_URL = "ws://132.145.67.221:9090" 
 
 def on_open(ws):
     def run():
@@ -18,10 +18,17 @@ def on_open(ws):
                 }
             }
             message = json.dumps(command)
-            ws.send(message)
-            print("Sent command:", message)
-            time.sleep(1)  
-    thread = threading.Thread(target=run)
+            try:
+                ws.send(message)
+                print("Sent command:", message)
+            except websocket._exceptions.WebSocketConnectionClosedException as e:
+                print("Connection closed while sending. Error:", e)
+                break  
+            except Exception as e:
+                print("Unexpected error sending message:", e)
+                break
+            time.sleep(1)
+    thread = threading.Thread(target=run, daemon=True)
     thread.start()
 
 def on_message(ws, message):
@@ -31,15 +38,24 @@ def on_error(ws, error):
     print("Error:", error)
 
 def on_close(ws, close_status_code, close_msg):
-    print("Connection closed.")
+    print("Connection closed. Code:", close_status_code, "Message:", close_msg)
+
+def run_client():
+    while True:
+        try:
+            ws = websocket.WebSocketApp(
+                RELAYER_URL,
+                on_open=on_open,
+                on_message=on_message,
+                on_error=on_error,
+                on_close=on_close
+            )
+            ws.run_forever(ping_interval=20, ping_timeout=10)
+        except Exception as e:
+            print("Exception in run_forever:", e)
+        print("Reconnecting in 5 seconds...")
+        time.sleep(5)
 
 if __name__ == "__main__":
     websocket.enableTrace(True)
-    ws = websocket.WebSocketApp(
-        RELAYER_URL,
-        on_open=on_open,
-        on_message=on_message,
-        on_error=on_error,
-        on_close=on_close
-    )
-    ws.run_forever()
+    run_client()
