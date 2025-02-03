@@ -2,7 +2,7 @@ import json
 import time
 import websocket
 import threading
-import msvcrt  # Windows only use "getch" for Linux
+import msvcrt # Windows only
 
 RELAYER_URL = "ws://132.145.67.221:9090"
 should_quit = False
