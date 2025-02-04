@@ -39,7 +39,13 @@ RUN git clone https://github.com/eclipse-cyclonedds/cyclonedds -b releases/0.8.x
 
 WORKDIR /root/ros2_ws/src/unitree_ros2/cyclonedds_ws
 RUN colcon build --packages-select cyclonedds
+#RUN colcon build --symlink-install
+
+# setup unitree ros2 environment
+RUN source /opt/ros/foxy/setup.bash
+RUN source /root/ros2_ws/install/setup.bash
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name='eth0' priority='default' multicast='default' /></Interfaces></General></Domain></CycloneDDS>"
 
 WORKDIR /root/ros2_ws
 RUN source /opt/ros/foxy/setup.bash && source install/setup.bash && colcon build
-
