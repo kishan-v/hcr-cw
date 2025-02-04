@@ -41,29 +41,20 @@ async def receive_video_and_display(params: VideoStreamParams):
             print(f"[RECEIVER] Expected frame size: {params.frame_size} bytes")
 
             receiver_command = [
-                "ffmpeg",
-                "-y",
+                "ffplay",
                 "-fflags",
                 "nobuffer",
                 "-flags",
                 "low_delay",
                 "-strict",
                 "experimental",
-                "-thread_queue_size",
-                "512",
-                "-i",
-                f"srt://{SERVER_IP}:{SERVER_PORT}?mode=caller&latency={params.latency}&peerlatency={params.latency}",
-                "-vf",
-                f"scale={params.width}:{params.height}",
-                "-pix_fmt",
-                params.pixel_format,
-                "-f",
-                "rawvideo",
                 "-probesize",
                 "32",
                 "-analyzeduration",
                 "0",
-                "pipe:1",
+                f"srt://{SERVER_IP}:{SERVER_PORT}?mode=caller&latency={params.latency}&peerlatency={params.latency}",
+                "-vf",
+                f"scale={params.width}:{params.height},format={params.pixel_format}",
             ]
             print(f"[RECEIVER] Starting FFmpeg:\n{' '.join(receiver_command)}")
             proc = await asyncio.create_subprocess_exec(

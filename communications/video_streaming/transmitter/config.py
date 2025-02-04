@@ -4,38 +4,59 @@ SERVER_CONFIG = {
 }
 
 # MACBOOK WEBCAM
+# DEVICE_CONFIG = {
+#     "latency": 50,  # 50ms
+#     "input_opts": [
+#         "-f",
+#         "avfoundation",
+#         # "-framerate",
+#         # "30",
+#         # "-i",
+#         # "1",
+#         "-framerate",
+#         "29.97",
+#         "-i",
+#         "RICOH THETA Z1:none",
+#         # "-vf",
+#         # (
+#         #     "scale=1280:720,"
+#         #     "drawtext=fontfile=/Library/Fonts/Arial.ttf: "
+#         #     "text='%{pts\\:hms}': "
+#         #     "x=10: y=30: fontsize=24: fontcolor=white: box=1: boxcolor=black@0.5"
+#         # ),
+#     ],
+#     "output_opts": [
+#         "-f",
+#         "mpegts",
+#         "-c:v",
+#         "h264",
+#         "-preset",
+#         "ultrafast",
+#         "-tune",
+#         "zerolatency",
+#     ],
+# }
+
 DEVICE_CONFIG = {
-    "latency": 50000,  # 50ms
+    "latency": 50,  # 50ms latency
     "input_opts": [
-        "-f",
-        "avfoundation",
-        "-framerate",
-        "30",
-        "-i",
-        "0",
-        # "-vf",
-        # (
-        #     "scale=1280:720,"
-        #     "drawtext=fontfile=/Library/Fonts/Arial.ttf: "
-        #     "text='%{pts\\:hms}': "
-        #     "x=10: y=30: fontsize=24: fontcolor=white: box=1: boxcolor=black@0.5"
-        # ),
+        "-f", "avfoundation",
+        "-framerate", "29.97",
+        "-pixel_format", "uyvy422",  # Added to force the correct pixel format on input
+        "-i", "RICOH THETA Z1:none",
     ],
     "output_opts": [
-        "-f",
-        "mpegts",
-        "-c:v",
-        "h264",
-        "-preset",
-        "ultrafast",
-        "-tune",
-        "zerolatency",
+        "-vf", "format=yuv422p",      # Added to ensure proper conversion before encoding
+        "-f", "mpegts",
+        "-c:v", "h264",
+        "-preset", "ultrafast",
+        "-tune", "zerolatency",
     ],
 }
 
 # RICOH THETA 360
 # DEVICE_CONFIG = {
-#     "latency": 50000, # 50ms
+#     "latency": 50,  # 50ms
 #     "input_opts": [
 #         "-f",
 #         "v4l2",
