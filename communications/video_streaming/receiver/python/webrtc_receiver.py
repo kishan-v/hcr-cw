@@ -42,21 +42,26 @@ async def run(pc, signaling):
             asyncio.ensure_future(display_video())
 
     try:
-        # Create and send offer
-        offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-        print("\n=== SDP Offer ===")
-        print(pc.localDescription.sdp)
-        print("=================\n")
-        await signaling.send(pc.localDescription)
-
-        # Wait for and process answer
-        answer = await signaling.receive()
-        if isinstance(answer, RTCSessionDescription):
-            await pc.setRemoteDescription(answer)
-        else:
-            print("Received invalid answer")
+        # Wait for and process offer from transmitter
+        offer = await signaling.receive()
+        if not isinstance(offer, RTCSessionDescription):
+            print("Received invalid offer")
             return
+        
+        print("\n=== Received SDP Offer ===")
+        print(offer.sdp)
+        print("========================\n")
+        
+        # Set the remote description (offer)
+        await pc.setRemoteDescription(offer)
+        
+        # Create and send answer
+        answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        print("\n=== Sending SDP Answer ===")
+        print(pc.localDescription.sdp)
+        print("=========================\n")
+        await signaling.send(pc.localDescription)
 
         # Keep connection alive
         done = asyncio.Future()

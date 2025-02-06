@@ -69,31 +69,30 @@ async def run(pc, signaling):
         print("Signaling state is", pc.signalingState)
 
     try:
-        # Add the local video track
+        # 1) Add local track
         local_video = VideoCameraTrack()
         pc.addTrack(local_video)
 
-        # Wait for remote offer first
+        # 2) Create and send offer
+        offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        await signaling.send(pc.localDescription)
+
+        print("Sent SDP offer to signaling server")
+
+        # 3) Wait for the remote answer from Unity
         remote_msg = await signaling.receive()
-
-        if isinstance(remote_msg, RTCSessionDescription):
+        if isinstance(remote_msg, RTCSessionDescription) and remote_msg.type == "answer":
+            print("Received SDP answer from Unity")
             await pc.setRemoteDescription(remote_msg)
+        else:
+            print("Did not receive valid SDP answer")
 
-            # Create and send answer
-            if remote_msg.type == "offer":
-                answer = await pc.createAnswer()
-                await pc.setLocalDescription(answer)
-                await signaling.send(pc.localDescription)
-
-        # Keep connection alive
+        # 4) Keep the connection alive so video continues streaming
         while True:
             try:
                 msg = await signaling.receive()
-                if not msg:
-                    break
-                if isinstance(msg, RTCSessionDescription):
-                    await pc.setRemoteDescription(msg)
-
+                # Possibly handle additional messages (ICE candidates, etc.) if you implement them
             except Exception as e:
                 print(f"Error during connection: {e}")
                 break
