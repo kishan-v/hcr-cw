@@ -47,14 +47,14 @@ async def run(pc, signaling):
         if not isinstance(offer, RTCSessionDescription):
             print("Received invalid offer")
             return
-        
+
         print("\n=== Received SDP Offer ===")
         print(offer.sdp)
         print("========================\n")
-        
+
         # Set the remote description (offer)
         await pc.setRemoteDescription(offer)
-        
+
         # Create and send answer
         answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)

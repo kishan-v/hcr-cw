@@ -13,19 +13,33 @@ class WebSocketSignaling:
     async def connect(self):
         self.websocket = await websockets.connect(self.uri)
 
-    async def send(self, description):
-        message = json.dumps(
-            {
-                "type": description.type,
-                "sdp": description.sdp,
+    async def send(self, message):
+        if isinstance(message, RTCSessionDescription):
+            # Handle SDP messages
+            data = {
+                "type": message.type,
+                "sdp": message.sdp,
             }
-        )
-        await self.websocket.send(message)
+        else:
+            # Handle ICE candidate messages
+            data = message
+
+        await self.websocket.send(json.dumps(data))
 
     async def receive(self):
         message = await self.websocket.recv()
         data = json.loads(message)
-        return RTCSessionDescription(sdp=data["sdp"], type=data["type"])
+
+        msg_type = data.get("type")
+        if msg_type == "candidate":
+            # Return the raw dict for ICE candidate messages
+            return data
+        elif msg_type in ["offer", "answer", "pranswer", "rollback"]:
+            # Return an RTCSessionDescription for valid SDP types
+            return RTCSessionDescription(sdp=data["sdp"], type=msg_type)
+        else:
+            # Raise an error (or ignore) if we get an unexpected type
+            raise ValueError(f"Unexpected message type: {msg_type}")
 
     async def close(self):
         await self.websocket.close()

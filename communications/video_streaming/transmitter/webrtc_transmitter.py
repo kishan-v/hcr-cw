@@ -12,6 +12,7 @@ from aiortc import (
     RTCIceServer,
     MediaStreamTrack,
     RTCSessionDescription,
+    RTCIceCandidate,
 )
 from websocket_signaling import WebSocketSignaling
 
@@ -54,15 +55,20 @@ class VideoCameraTrack(MediaStreamTrack):
         return pts, time_base
 
 
-async def run(pc, signaling):
+async def run(pc: RTCPeerConnection, signaling):
     await signaling.connect()
 
     @pc.on("iceconnectionstatechange")
     async def on_iceconnectionstatechange():
-        print("ICE connection state is", pc.iceConnectionState)
+        logging.info(f"ICE connection state changed to: {pc.iceConnectionState}")
         if pc.iceConnectionState == "failed":
+            logging.error("ICE connection failed")
             await pc.close()
             await signaling.close()
+        elif pc.iceConnectionState == "disconnected":
+            logging.warning("ICE connection disconnected")
+        elif pc.iceConnectionState == "connected":
+            logging.info("ICE connection established successfully")
 
     @pc.on("signalingstatechange")
     async def on_signalingstatechange():
@@ -94,7 +100,7 @@ async def run(pc, signaling):
                 msg = await signaling.receive()
                 # Possibly handle additional messages (ICE candidates, etc.) if you implement them
             except Exception as e:
-                print(f"Error during connection: {e}")
+                logging.exception(f"Error during connection: {e}")
                 break
 
     except Exception as e:
@@ -113,10 +119,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    # if args.verbose:
+    #     logging.basicConfig(level=logging.DEBUG)
+    # else:
+    #     logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     # --- TUNABLE PARAMETERS: ICE Servers (STUN/TURN) ---
     # STUN servers help discover your public IP (and may enable direct P2P connection).
@@ -124,12 +131,12 @@ if __name__ == "__main__":
     ice_servers = [
         RTCIceServer(urls=["stun:stun.l.google.com:19302"]),
         # TODO: use a TURN server, uncomment and fill in TURN server details:
-        RTCIceServer(urls=["turn:130.162.176.219:3478"]),
+        # RTCIceServer(urls=["turn:130.162.176.219:3478"]),
     ]
     configuration = RTCConfiguration(iceServers=ice_servers)
 
     pc = RTCPeerConnection(configuration)
-    signaling = WebSocketSignaling("ws://localhost:8765")  # TODO:
+    signaling = WebSocketSignaling(uri="ws://localhost:8765")  # TODO:
 
     try:
         asyncio.get_event_loop().run_until_complete(run(pc, signaling))
