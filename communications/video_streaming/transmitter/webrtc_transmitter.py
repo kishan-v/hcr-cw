@@ -14,7 +14,9 @@ from aiortc import (
     RTCSessionDescription,
     RTCIceCandidate,
 )
-from websocket_signaling import WebSocketSignaling
+from websocket_signaling import (
+    WebSocketSignaling,
+)
 
 
 class VideoCameraTrack(MediaStreamTrack):
@@ -55,7 +57,7 @@ class VideoCameraTrack(MediaStreamTrack):
         return pts, time_base
 
 
-async def run(pc: RTCPeerConnection, signaling):
+async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
     await signaling.connect()
 
     @pc.on("iceconnectionstatechange")
@@ -74,6 +76,31 @@ async def run(pc: RTCPeerConnection, signaling):
     async def on_signalingstatechange():
         print("Signaling state is", pc.signalingState)
 
+    @pc.on("icecandidate")
+    async def on_icecandidate(candidate: RTCIceCandidate):
+        # Called when this client gathers a new ICE candidate (from STUN/TURN)
+        if candidate is not None:
+            logging.debug(f"New transmitter ICE candidate: {candidate}")
+            await signaling.send(
+                {
+                    "type": "candidate",
+                    "component": candidate.component,
+                    "foundation": candidate.foundation,
+                    "ip": candidate.ip,
+                    "port": candidate.port,
+                    "priority": candidate.priority,
+                    "protocol": candidate.protocol,
+                    "candidateType": candidate.type,
+                    "relatedAddress": candidate.relatedAddress,
+                    "relatedPort": candidate.relatedPort,
+                    "sdpMid": candidate.sdpMid,
+                    "sdpMLineIndex": candidate.sdpMLineIndex,
+                    "tcpType": candidate.tcpType,
+                }
+            )
+        else:
+            logging.debug("ICE candidate gathering complete")
+
     try:
         # 1) Add local track
         local_video = VideoCameraTrack()
@@ -88,7 +115,10 @@ async def run(pc: RTCPeerConnection, signaling):
 
         # 3) Wait for the remote answer from Unity
         remote_msg = await signaling.receive()
-        if isinstance(remote_msg, RTCSessionDescription) and remote_msg.type == "answer":
+        if (
+            isinstance(remote_msg, RTCSessionDescription)
+            and remote_msg.type == "answer"
+        ):
             print("Received SDP answer from Unity")
             await pc.setRemoteDescription(remote_msg)
         else:
@@ -98,7 +128,25 @@ async def run(pc: RTCPeerConnection, signaling):
         while True:
             try:
                 msg = await signaling.receive()
-                # Possibly handle additional messages (ICE candidates, etc.) if you implement them
+                if msg.get("type") == "candidate":
+                    logging.debug(f"Received ICE candidate: {msg}")
+                    # Directly add the candidate dictionary
+                    candidate = RTCIceCandidate(
+                        # TODO: decompose Unity Candidate format into RTCIceCandidate
+                        component=msg["component"],
+                        foundation=msg["foundation"],
+                        ip=msg["ip"],
+                        port=msg["port"],
+                        priority=msg["priority"],
+                        protocol=msg["protocol"],
+                        type=msg["candidateType"],
+                        relatedAddress=msg.get("relatedAddress"),
+                        relatedPort=msg.get("relatedPort"),
+                        sdpMid=msg["sdpMid"],
+                        sdpMLineIndex=msg["sdpMLineIndex"],
+                        tcpType=msg.get("tcpType"),
+                    )
+                    await pc.addIceCandidate(candidate)
             except Exception as e:
                 logging.exception(f"Error during connection: {e}")
                 break
