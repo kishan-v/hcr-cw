@@ -6,7 +6,7 @@ using NativeWebSocket;
 
 public class WebRTCReceiver : MonoBehaviour
 {
-    [SerializeField] private string signallingServerUrl = "ws://localhost:8765";  // TODO: Add signaling server URL
+    [SerializeField] private string signallingServerUrl = "ws://130.162.176.219:8765";  // TODO: Add signaling server URL
     private WebSocket websocket;
     public RTCPeerConnection peerConnection;
     public System.Action<Texture> OnVideoTextureUpdated;

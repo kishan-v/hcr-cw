@@ -18,6 +18,8 @@ from websocket_signaling import (
     WebSocketSignaling,
 )
 
+WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
+
 
 class VideoCameraTrack(MediaStreamTrack):
     kind = "video"
@@ -184,7 +186,7 @@ if __name__ == "__main__":
     configuration = RTCConfiguration(iceServers=ice_servers)
 
     pc = RTCPeerConnection(configuration)
-    signaling = WebSocketSignaling(uri="ws://localhost:8765")  # TODO:
+    signaling = WebSocketSignaling(uri=WEBSOCKET_SIGNALLING_URI)  # TODO:
 
     try:
         asyncio.get_event_loop().run_until_complete(run(pc, signaling))
