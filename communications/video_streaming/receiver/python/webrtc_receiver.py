@@ -1,3 +1,21 @@
+
+
+###########
+
+
+# NOTE: THIS RECEIVER DOES NOT FULLY IMPLEMENT THE ICE CANDIDATE EXCHANGE SO ONLY WORKS IN LOCAL NETWORK
+
+#!!!!!!!
+
+###########
+
+
+
+
+
+
+
+
 #!/usr/bin/env python3
 import asyncio
 import cv2
@@ -92,7 +110,7 @@ if __name__ == "__main__":
     ice_servers = [
         RTCIceServer(urls=["stun:stun.l.google.com:19302"]),
         # Uncomment and configure TURN server if needed:
-        RTCIceServer(urls=["turn:130.162.176.219:3478"]),
+        # RTCIceServer(urls=["turn:130.162.176.219:3478"]),
     ]
     configuration = RTCConfiguration(iceServers=ice_servers)
 
