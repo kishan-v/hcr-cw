@@ -41,7 +41,7 @@ class LidarProcessor(Node):
         data = data.reshape(-1, 4).transpose()
         
         # set local variable
-        self.data = data
+return data
 
 # live plot data
 def plot_data(node):
