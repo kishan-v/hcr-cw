@@ -30,7 +30,7 @@ class LidarProcessor(Node):
         self.get_logger().info(f"Received PointCloud2 message with {len(msg.data)} bytes")
 
         # process lidar data
-        data = self.process_lidar_data(msg.data)
+self.data = self.process_lidar_data(msg.data)
 
     # process lidar data from raw into structured format
     def process_lidar_data(self, raw_data):
