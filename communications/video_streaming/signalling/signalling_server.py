@@ -7,6 +7,8 @@ import signal
 connected = set()
 client_message_counts = {}
 
+HOST = "0.0.0.0"
+PORT = 8765
 
 def get_timestamp():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -78,8 +80,8 @@ async def main():
 
         server = await websockets.serve(
             handler,
-            "localhost",  # Changed from 0.0.0.0 to localhost
-            8765,
+            HOST,
+            PORT,
             reuse_port=True,
         )
 
