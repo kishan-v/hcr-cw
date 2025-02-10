@@ -85,7 +85,7 @@ async def main():
             reuse_port=True,
         )
 
-        print("Signaling server started on ws://localhost:8765")
+        print(f"Signaling server started on ws://{HOST}:{PORT}")
 
         def signal_handler():
             stop.set_result(None)
