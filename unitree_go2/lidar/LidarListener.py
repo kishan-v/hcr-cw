@@ -11,6 +11,53 @@ import threading
 import time
 import argparse
 
+from abc import abstractmethod
+
+class PostProcessingTransform:
+    def __init__(self, transform_name):
+        self.transform_name = transform_name
+    
+    @abstractmethod
+    def apply(self, data):
+        pass
+
+class RangeFilter(PostProcessingTransform):
+    def __init__(self, x_min, x_max, y_min, y_max):
+        super().__init__("range filter")
+
+        self.x_min = x_min
+        self.x_max = x_max
+        self.y_min = y_min
+        self.y_max = y_max
+
+    def create_filter(self, data):
+        x_mask = np.logical_or(abs(data[:, 0]) < self.x_min,
+               abs(data[:, 0]) > self.x_max)
+        y_mask = np.logical_or(abs(data[:, 1]) < self.y_min,
+               abs(data[:, 1]) > self.y_max)
+
+        return np.logical_or(x_mask, y_mask)
+
+    def apply(self, data):
+        mask = self.create_filter(data) 
+        return data[~mask]
+
+
+class PostProcessingPipeline:
+    def __init__(self):
+        self.transforms = []
+    
+    def add_transform(self, transform):
+        assert issubclass(type(transform), PostProcessingTransform)
+        self.transforms.append(transform)
+
+    def apply(self, data):
+        for transform in self.transforms:
+            data = transform.apply(data)
+
+        return data
+
+
 class LidarProcessor(Node):
     def __init__(self):
         super().__init__("lidar_processor")
@@ -22,12 +69,17 @@ class LidarProcessor(Node):
                 self.lidar_callback,
                 10)
 
-        #initialise empty data
+        # initialise empty data
         self.data = np.empty((0, 4))
+
+        # initialise pipeline
+        self.pipeline = PostProcessingPipeline()
+
+        self.pipeline.add_transform(RangeFilter(0.5, 1.0, 0.5, 1.0))
 
     # callback for receiving lidar data
     def lidar_callback(self, msg):
-        self.get_logger().info(f"Received PointCloud2 message with {len(msg.data)} bytes")
+        # self.get_logger().info(f"Received PointCloud2 message with {len(msg.data)} bytes")
 
         # process lidar data
 self.data = self.process_lidar_data(msg.data)
@@ -38,10 +90,18 @@ self.data = self.process_lidar_data(msg.data)
         data = np.frombuffer(raw_data, dtype=np.float32)
         
         # reshape the data into [[x, y, z, intensity]]
-        data = data.reshape(-1, 4).transpose()
+        data = data.reshape(-1, 4)
         
+<<<<<<< Updated upstream
         # set local variable
 return data
+=======
+        # apply transformation pipeline
+        data = self.pipeline.apply(data)
+
+        # convert into the required shape
+        self.data = data.transpose()
+>>>>>>> Stashed changes
 
 # live plot data
 def plot_data(node):
@@ -58,9 +118,9 @@ def plot_data(node):
     ax.set_zlabel('Z')
     ax.set_title('Live Lidar Point Cloud')
 
-    ax.set_xlim3d(-30, 30)
-    ax.set_ylim3d(-30, 30)
-    ax.set_zlim3d(-30, 30)
+    ax.set_xlim3d(-5, 5)
+    ax.set_ylim3d(-5, 5)
+    ax.set_zlim3d(-5, 5)
 
     # read from the node
     while rclpy.ok():
@@ -77,10 +137,11 @@ def plot_data(node):
             # draw the updates
             plt.draw()
         
-        plt.pause(0.01)
+        plt.pause(0.5)
 
 def print_data(node):
     while rclpy.ok():
+        time.sleep(0.5)
         print(node.data)
 
 if __name__ == '__main__':
