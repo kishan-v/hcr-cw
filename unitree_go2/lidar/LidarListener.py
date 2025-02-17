@@ -82,7 +82,7 @@ class LidarProcessor(Node):
         # self.get_logger().info(f"Received PointCloud2 message with {len(msg.data)} bytes")
 
         # process lidar data
-self.data = self.process_lidar_data(msg.data)
+        self.process_lidar_data(msg.data)
 
     # process lidar data from raw into structured format
     def process_lidar_data(self, raw_data):
@@ -92,16 +92,11 @@ self.data = self.process_lidar_data(msg.data)
         # reshape the data into [[x, y, z, intensity]]
         data = data.reshape(-1, 4)
         
-<<<<<<< Updated upstream
-        # set local variable
-return data
-=======
         # apply transformation pipeline
         data = self.pipeline.apply(data)
 
         # convert into the required shape
         self.data = data.transpose()
->>>>>>> Stashed changes
 
 # live plot data
 def plot_data(node):
