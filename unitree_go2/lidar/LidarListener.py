@@ -18,11 +18,12 @@ class PostProcessingTransform:
         self.transform_name = transform_name
     
     @abstractmethod
-    def apply(self, data):
+    def apply(self, data, local_data = None):
         pass
 
 
 
+''' Find the midpoint of the global data, and center the global map around this'''
 class RemoveOffset(PostProcessingTransform):
     def __init__(self, v_max):
         super().__init__("remove offset")
@@ -38,7 +39,7 @@ class RemoveOffset(PostProcessingTransform):
         self.x_k = np.zeros((1,3))
 
        
-    def apply(self, data):
+    def apply(self, data, local_data = None):
         if self.initialised:
             # calculate avg time
             self.sum_time += time.time() - self.last_time
@@ -51,17 +52,20 @@ class RemoveOffset(PostProcessingTransform):
             
             # filter everything outside the last radius
             filt = RangeFilter(0, max_moved, 0, max_moved)
-            centroid_data = data[:, :3] - self.x_k 
+            centroid_data = local_data[:, :3] - self.x_k 
             centroid_data = filt.apply(centroid_data)
         else:
-            centroid_data = data
+            centroid_data = local_data
             self._initialised = True
 
         # estimate the new centroid
         self.x_k = np.median(centroid_data[:, :3], axis=0)
-        data[:, :3] -= self.x_k 
         
-        return data
+    
+        out = data
+        out[:, :3] -= self.x_k 
+        
+        return out 
 
 
 
@@ -80,9 +84,9 @@ class RangeFilter(PostProcessingTransform):
         y_mask = np.logical_or(abs(data[:, 1]) < self.y_min,
                abs(data[:, 1]) > self.y_max)
 
-        return np.logical_or(x_mask, y_mask)
+        return np.logical_and(x_mask, y_mask)
 
-    def apply(self, data):
+    def apply(self, data, local_data = None):
         mask = self.create_filter(data) 
         return data[~mask]
 
@@ -95,9 +99,9 @@ class PostProcessingPipeline:
         assert issubclass(type(transform), PostProcessingTransform)
         self.transforms.append(transform)
 
-    def apply(self, data):
+    def apply(self, data, local_data=None):
         for transform in self.transforms:
-            data = transform.apply(data)
+            data = transform.apply(data, local_data=local_data)
 
         return data
 
@@ -118,15 +122,19 @@ class LidarProcessor(Node):
                 10)
 
         # initialise empty data
-        self.data = np.empty((0, 4))
+        self.data = np.empty((4, 0))
+        self.user_data = np.empty((3, 0))
 
         # initialise pipeline
         self.pipeline = PostProcessingPipeline()
+        self.user_pipeline = PostProcessingPipeline()
 
         self.pipeline.add_transform(RemoveOffset(20 / (60 * 60)))
-        self.pipeline.add_transform(RangeFilter(0.5, 5.0, 0.5, 5.0))
+        self.pipeline.add_transform(RangeFilter(0.2, 8.0, 0.2, 8.0))
 
         self.movement = np.zeros((1, 3))
+
+        self.point_limit = 10000
 
     # callback for receiving lidar data
     def lidar_callback(self, msg):
@@ -139,20 +147,31 @@ class LidarProcessor(Node):
     # process lidar data from raw into structured format
     def process_lidar_data(self, raw_data):
         # extract points, type fp32
-        data = np.frombuffer(raw_data, dtype=np.float32)
+        original_data = np.frombuffer(raw_data, dtype=np.float32)
         
         # reshape the data into [[x, y, z, intensity]]
-        data = data.reshape(-1, 4)
-
+        original_data = original_data.reshape(-1, 4)
         #test movement
-        data[:, :3] = data[:, :3] + self.movement
-        self.movement += np.random.uniform(-5, 5, size=(1, 3))
-        
-        # apply transformation pipeline
-        data = self.pipeline.apply(data)
+        # original_data[:, :3] = original_data[:, :3] + self.movement
+        # self.movement += np.random.uniform(-5, 5, size=(1, 3))
 
-        # convert into the required shape
-        self.data = data.transpose()
+        # 1. add all data to the current map
+        data = np.append(self.data, original_data.transpose(), axis=1)
+
+        #remove first n points
+        if data.shape[1] > self.point_limit:
+            remove = data.shape[1]-self.point_limit
+            self.data = data[:, remove:]
+        else:
+            self.data = data
+
+
+        print(f"shape of data {self.data.shape}")
+
+        # get the current centroid
+        self.user_data = self.pipeline.apply(np.copy(self.data).transpose(), original_data).transpose()
+        print(f"shape of user data {self.user_data.shape}")
+
 
 # live plot data
 def plot_data(node):
@@ -163,7 +182,7 @@ def plot_data(node):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     
-    sc = ax.scatter([], [], [], c=[], cmap='viridis', marker='o')
+    sc = ax.scatter([], [], [], c=[], cmap='viridis', marker='o', s=1)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
@@ -175,9 +194,9 @@ def plot_data(node):
 
     # read from the node
     while rclpy.ok():
-        if node.data.shape[0] > 0:
+        if node.user_data.shape[0] > 0:
             # extract data
-            x, y, z, intensity = node.data
+            x, y, z, intensity = node.user_data
 
             # update scatter plot
             sc._offsets3d = (x, y, z)
