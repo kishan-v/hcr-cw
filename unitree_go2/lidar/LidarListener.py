@@ -21,6 +21,50 @@ class PostProcessingTransform:
     def apply(self, data):
         pass
 
+
+
+class RemoveOffset(PostProcessingTransform):
+    def __init__(self, v_max):
+        super().__init__("remove offset")
+        self.initialised = False
+
+        self.v_max = v_max
+
+        # TODO: fix this hacky way of recording time
+        self.sum_time = 0
+        self.last_time = time.time()
+        self.ctr = 0
+
+        self.x_k = np.zeros((1,3))
+
+       
+    def apply(self, data):
+        if self.initialised:
+            # calculate avg time
+            self.sum_time += time.time() - self.last_time
+            self.last_time = time.time() 
+            self.ctr += 1
+
+            print("hallo: ", self.sum_time / self.ctr, " - ", time.time())
+            # calculate max radius moved
+            max_moved = max(self.sum_time * self.v_max / self.ctr, 1)
+            
+            # filter everything outside the last radius
+            filt = RangeFilter(0, max_moved, 0, max_moved)
+            centroid_data = data[:, :3] - self.x_k 
+            centroid_data = filt.apply(centroid_data)
+        else:
+            centroid_data = data
+            self._initialised = True
+
+        # estimate the new centroid
+        self.x_k = np.median(centroid_data[:, :3], axis=0)
+        data[:, :3] -= self.x_k 
+        
+        return data
+
+
+
 class RangeFilter(PostProcessingTransform):
     def __init__(self, x_min, x_max, y_min, y_max):
         super().__init__("range filter")
@@ -62,6 +106,10 @@ class LidarProcessor(Node):
     def __init__(self):
         super().__init__("lidar_processor")
 
+        self.last_time = time.time()
+        self.time_diff = 0
+        self.ctr = 0
+
         # subscribe to the topic
         self.subscriber = self.create_subscription(
                 PointCloud2,
@@ -75,11 +123,15 @@ class LidarProcessor(Node):
         # initialise pipeline
         self.pipeline = PostProcessingPipeline()
 
-        self.pipeline.add_transform(RangeFilter(0.5, 1.0, 0.5, 1.0))
+        self.pipeline.add_transform(RemoveOffset(20 / (60 * 60)))
+        self.pipeline.add_transform(RangeFilter(0.5, 5.0, 0.5, 5.0))
+
+        self.movement = np.zeros((1, 3))
 
     # callback for receiving lidar data
     def lidar_callback(self, msg):
-        # self.get_logger().info(f"Received PointCloud2 message with {len(msg.data)} bytes")
+
+        self.get_logger().info(f"Received PointCloud2 message with {len(msg.data)} bytes.")
 
         # process lidar data
         self.process_lidar_data(msg.data)
@@ -91,6 +143,10 @@ class LidarProcessor(Node):
         
         # reshape the data into [[x, y, z, intensity]]
         data = data.reshape(-1, 4)
+
+        #test movement
+        data[:, :3] = data[:, :3] + self.movement
+        self.movement += np.random.uniform(-5, 5, size=(1, 3))
         
         # apply transformation pipeline
         data = self.pipeline.apply(data)
