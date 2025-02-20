@@ -10,8 +10,47 @@ from mpl_toolkits.mplot3d import Axes3D
 import threading
 import time
 import argparse
+import json
 
 from abc import abstractmethod
+
+
+# 5m x 5 x 2 = 50m^3
+# 0.1 * 0.1 * 0.1 = 0.001
+# total number of cubes -> 50000
+# 1 bit per item in the array
+# 50000bits -> 50000/8000 = 6.25kb per box 
+
+# formula for compressing box:
+#   amount per row = width / size
+#   amount per col = depth / size
+#   amount per height = height / size
+#   row_offset = x / step_size
+#   col_offset = (y / step_size) * amount_per_row
+#   height_offset = (z / step_size) * (amount_per_col * amount_per_height)
+# idx = height_offset + col_offset + row_offset
+
+
+
+class LidarSender:
+    def __init__(self, step_size):
+        self.step_size = step_size
+
+    def serialise_occupancy_grid(self, data)->str:
+        json_data = {
+            "world_dims": {
+                "width": 5,
+                "depth": 5,
+                "height": 2,
+                "step_size": self.step_size,
+            },
+            "timestamp": int(time.now()),
+            "box_vals": data,
+        }
+
+    def send(self):
+        pass
+
 
 
 '''Base Class for Transforms'''
@@ -95,40 +134,65 @@ class RangeFilter(PostProcessingTransform):
 
 '''Convert discrete cartesian points into an occupancy grid'''
 class ConvertToOccupancyGrid(PostProcessingTransform):
-    def __init__(self, x_width, y_width, z_width, voxel_width):
+    def __init__(self, x_width, y_width, z_width, step_size):
         super().__init__("occupancy converter")
 
         self.x_width = x_width
         self.y_width = y_width
         self.z_width = z_width
 
-        self.voxel_width = voxel_width
+        self.num_rows = x_width / step_size
+        self.num_cols = y_width / step_size
+        self.num_heights = z_width / step_size
+
+        self.step_size = step_size 
+
+    ''' Convert the cartesian coordinates to grid index '''
+    def cartesian_to_grid_idx(self, x, y, z):
+       row_offset = x / self.step_size 
+       col_offset = (y / self.step_size) * self.num_rows
+       height_offset = (z / self.step_size) * (self.num_rows * self.num_cols)
+
+       idx = row_offset + col_offset + height_offset
+        
+       # assert idx <= self.num_rows * self.num_cols * self.num_heights
+
+       return idx 
+
+
+    def rounding_policy(self, data, dist):
+         return (data + dist // 2) // dist * dist 
+
 
     def apply(self, data, local_data = None):
         # rounded_data = np.around(data, decimals = 1)
-        rounded_data = (data[:, :3] / self.voxel_width).astype(int)
-        # print(f"Got max: {np.max(rounded_data)} with size: {rounded_data.shape}")
 
-        voxel_centroids = np.unique(rounded_data, axis=0)
+        # downsample by roundin
+        # rounded_data = (data[:, :3] / self.step_size).astype(int)
+        rounded_data = self.rounding_policy(data, self.step_size)
+        downsampled_cartesian_grid = np.unique(rounded_data, axis=0)
+
+        # print(f"Got max: {np.max(rounded_data)} with size: {rounded_data.shape}")
         # print(f"voxel_cent: {voxel_centroids.shape}")
 
         # normalise
-        min = np.min(voxel_centroids, axis=0).reshape((1,3))
+        # min = np.min(voxel_centroids, axis=0).reshape((1,3))
         # print(f"sizes: {rounded_data.shape}, {voxel_centroids.shape}, {min.shape}")
-        voxel_centroids -= min.reshape((1,3))
+        # voxel_centroids -= min.reshape((1,3))
         # print(f"sizes: {rounded_data.shape}, {voxel_centroids.shape}, {min.shape}")
 
         # print(f"max: {np.max(voxel_centroids)}")
 
+        idx_arrays = self.cartesian_to_grid_idx(data[:, 0], data[:, 1], data[:, 2])
+        print("GOT IDX ARRAYS: ", idx_arrays)
 
         # create grid
-        grid = np.zeros((self.x_width, self.y_width, self.z_width), dtype=bool)
+        grid = np.zeros((1, self.x_width * self.y_width * self.z_width), dtype=bool)
         
         # populate_grid
-        grid[voxel_centroids] = True
+        # grid[idx_arrays] = True
 
         return grid
-
 
 
 class PostProcessingPipeline:
