@@ -13,6 +13,8 @@ import argparse
 
 from abc import abstractmethod
 
+
+'''Base Class for Transforms'''
 class PostProcessingTransform:
     def __init__(self, transform_name):
         self.transform_name = transform_name
@@ -68,7 +70,7 @@ class RemoveOffset(PostProcessingTransform):
         return out 
 
 
-
+'''Remove all points within a certain range'''
 class RangeFilter(PostProcessingTransform):
     def __init__(self, x_min, x_max, y_min, y_max):
         super().__init__("range filter")
@@ -89,6 +91,44 @@ class RangeFilter(PostProcessingTransform):
     def apply(self, data, local_data = None):
         mask = self.create_filter(data) 
         return data[~mask]
+
+
+'''Convert discrete cartesian points into an occupancy grid'''
+class ConvertToOccupancyGrid(PostProcessingTransform):
+    def __init__(self, x_width, y_width, z_width, voxel_width):
+        super().__init__("occupancy converter")
+
+        self.x_width = x_width
+        self.y_width = y_width
+        self.z_width = z_width
+
+        self.voxel_width = voxel_width
+
+    def apply(self, data, local_data = None):
+        # rounded_data = np.around(data, decimals = 1)
+        rounded_data = (data[:, :3] / self.voxel_width).astype(int)
+        # print(f"Got max: {np.max(rounded_data)} with size: {rounded_data.shape}")
+
+        voxel_centroids = np.unique(rounded_data, axis=0)
+        # print(f"voxel_cent: {voxel_centroids.shape}")
+
+        # normalise
+        min = np.min(voxel_centroids, axis=0).reshape((1,3))
+        # print(f"sizes: {rounded_data.shape}, {voxel_centroids.shape}, {min.shape}")
+        voxel_centroids -= min.reshape((1,3))
+        # print(f"sizes: {rounded_data.shape}, {voxel_centroids.shape}, {min.shape}")
+
+        # print(f"max: {np.max(voxel_centroids)}")
+
+
+        # create grid
+        grid = np.zeros((self.x_width, self.y_width, self.z_width), dtype=bool)
+        
+        # populate_grid
+        grid[voxel_centroids] = True
+
+        return grid
+
 
 
 class PostProcessingPipeline:
@@ -127,14 +167,18 @@ class LidarProcessor(Node):
 
         # initialise pipeline
         self.pipeline = PostProcessingPipeline()
-        self.user_pipeline = PostProcessingPipeline()
+        self.voxel_pipeline = PostProcessingPipeline()
 
         self.pipeline.add_transform(RemoveOffset(20 / (60 * 60)))
-        self.pipeline.add_transform(RangeFilter(0.2, 8.0, 0.2, 8.0))
+        # self.pipeline.add_transform(RangeFilter(0.2, 5.0, 0.2, 5.0))
+
+        self.voxel_pipeline.add_transform(ConvertToOccupancyGrid(1001, 1001, 3, 0.1))
 
         self.movement = np.zeros((1, 3))
 
         self.point_limit = 10000
+
+        self.occupancy_grid = np.empty((3, 0))
 
     # callback for receiving lidar data
     def lidar_callback(self, msg):
@@ -166,11 +210,14 @@ class LidarProcessor(Node):
             self.data = data
 
 
-        print(f"shape of data {self.data.shape}")
+        # print(f"shape of data {self.data.shape}")
 
         # get the current centroid
         self.user_data = self.pipeline.apply(np.copy(self.data).transpose(), original_data).transpose()
-        print(f"shape of user data {self.user_data.shape}")
+        # print(f"shape of user data {self.user_data.shape}")
+
+        self.occupancy_grid = self.voxel_pipeline.apply(self.user_data.transpose())
+        # print(f"Occupancy: {self.occupancy_grid.shape}, with data: {self.occupancy_grid}")
 
 
 # live plot data
@@ -209,16 +256,59 @@ def plot_data(node):
         
         plt.pause(0.5)
 
+def plot_voxels(node):
+    # Turn on interactive mode
+    plt.ion()  # Enable interactive mode
+
+    # Set up the 3D plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Create an initially empty scatter plot for the voxel centers
+    sc = ax.scatter([], [], [], c=[], cmap='viridis', marker='o', s=1)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_title('Live Voxel Grid Center Points')
+
+    ax.set_xlim3d(0, 500)
+    ax.set_ylim3d(0, 500)
+    ax.set_zlim3d(0, 5)
+
+    # Main loop: update the plot as long as rclpy is OK
+    while rclpy.ok():
+        # Make sure the occupancy grid exists and has data
+        if node.occupancy_grid is not None and node.occupancy_grid.size > 0:
+            # Find the indices of all occupied voxels (True values)
+            idx_x, idx_y, idx_z = np.nonzero(node.occupancy_grid)
+            if idx_x.size > 0:
+                # Assuming each voxel spans 1 unit, adding 0.5 gives the center.
+                x = idx_x + 0.5
+                y = idx_y + 0.5
+                z = idx_z + 0.5
+                print(f"{idx_x.shape}")
+
+
+                print(f"{x[0]}, {y[0]}, {z[0]}")
+
+                # Update the scatter plot with the new center points
+                sc._offsets3d = (x, y, z)
+                sc.set_array(1)
+                plt.draw()
+
+        plt.pause(0.5) 
+
 def print_data(node):
     while rclpy.ok():
         time.sleep(0.5)
-        print(node.data)
+        print(node.occupancy_grid.shape)
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(description="CLI for the Lidar Processor")
 
     arg_parser.add_argument('--print_data', action="store_true", help="Print LIDAR Data into the console")
     arg_parser.add_argument('--plot_data', action="store_true", help="3D plot of Lidar Data using Matplotlib")
+    arg_parser.add_argument('--plot_voxels', action="store_true", help="3D plot of Occupancy Grid")
 
     args = arg_parser.parse_args()
 
@@ -229,7 +319,7 @@ if __name__ == '__main__':
     ros_thread = threading.Thread(target=rclpy.spin, args=(lidar_processor,), daemon=True)
     ros_thread.start()
 
-    if args.print_data and args.plot_data:
+    if args.print_data and args.plot_data and args.plot_voxels:
         print("Error: either print or plot")
         quit()
 
@@ -238,6 +328,9 @@ if __name__ == '__main__':
 
     if args.plot_data:
         plot_data(lidar_processor)
+
+    if args.plot_voxels:
+        plot_voxels(lidar_processor)
 
     input("Press any key to quit")
 
