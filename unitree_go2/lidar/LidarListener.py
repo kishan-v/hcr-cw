@@ -41,7 +41,7 @@ class LidarSender:
             "world_dims": {
                 "width": 5,
                 "depth": 5,
-                "height": 2,
+                "height": 5,
                 "step_size": self.step_size,
             },
             "timestamp": int(time.now()),
@@ -120,12 +120,16 @@ class RangeFilter(PostProcessingTransform):
         self.y_max = y_max
 
     def create_filter(self, data):
-        x_mask = np.logical_or(abs(data[:, 0]) < self.x_min,
-               abs(data[:, 0]) > self.x_max)
-        y_mask = np.logical_or(abs(data[:, 1]) < self.y_min,
-               abs(data[:, 1]) > self.y_max)
 
-        return np.logical_and(x_mask, y_mask)
+        lower_bound_filter = np.logical_and(abs(data[:, 0]) < self.x_min, abs(data[:, 1]) < self.y_min)
+        upper_bound_filter = np.logical_or(abs(data[:, 0]) > self.x_max, abs(data[:, 1]) >self.y_max)
+
+        # x_mask = np.logical_or(abs(data[:, 0]) < self.x_min,
+        #        abs(data[:, 0]) > self.x_max)
+        # y_mask = np.logical_or(abs(data[:, 1]) < self.y_min,
+        #        abs(data[:, 1]) > self.y_max)
+
+        return np.logical_or(lower_bound_filter, upper_bound_filter)
 
     def apply(self, data, local_data = None):
         mask = self.create_filter(data) 
@@ -157,7 +161,7 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
         
        # assert idx <= self.num_rows * self.num_cols * self.num_heights
 
-       return idx 
+       return np.asarray(idx, dtype=int)
 
 
     def rounding_policy(self, data, dist):
@@ -169,8 +173,15 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
 
         # downsample by roundin
         # rounded_data = (data[:, :3] / self.step_size).astype(int)
-        rounded_data = self.rounding_policy(data, self.step_size)
-        downsampled_cartesian_grid = np.unique(rounded_data, axis=0)
+        data = self.rounding_policy(data, self.step_size)
+        data = np.unique(data, axis=0)
+
+        # recenter the data
+        data[:, 0] += 5
+        data[:, 1] += 5
+        data[:, 2] -= np.min(data[:,2])
+
+        print("PROCESSING WITH SHAPE: ", data.shape)
 
         # print(f"Got max: {np.max(rounded_data)} with size: {rounded_data.shape}")
         # print(f"voxel_cent: {voxel_centroids.shape}")
@@ -183,14 +194,19 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
 
         # print(f"max: {np.max(voxel_centroids)}")
 
+        x0 = data[0,0]
+        y0 = data[0,1]
+        z0 = data[0,2]
+        print(f"Got idxs: ({0}, {0}, {0}) -> idx: {self.cartesian_to_grid_idx(0+10*self.step_size, 0, 0)}")
+
         idx_arrays = self.cartesian_to_grid_idx(data[:, 0], data[:, 1], data[:, 2])
         print("GOT IDX ARRAYS: ", idx_arrays)
 
         # create grid
-        grid = np.zeros((1, self.x_width * self.y_width * self.z_width), dtype=bool)
+        grid = np.zeros(int(self.x_width * self.y_width * self.z_width / (self.step_size ** 3)), dtype=bool)
         
         # populate_grid
-        # grid[idx_arrays] = True
+        grid[idx_arrays] = True
 
         return grid
 
@@ -234,9 +250,9 @@ class LidarProcessor(Node):
         self.voxel_pipeline = PostProcessingPipeline()
 
         self.pipeline.add_transform(RemoveOffset(20 / (60 * 60)))
-        # self.pipeline.add_transform(RangeFilter(0.2, 5.0, 0.2, 5.0))
+        self.pipeline.add_transform(RangeFilter(0.2, 5.0, 0.2, 5.0))
 
-        self.voxel_pipeline.add_transform(ConvertToOccupancyGrid(1001, 1001, 3, 0.1))
+        self.voxel_pipeline.add_transform(ConvertToOccupancyGrid(10, 10, 3, 0.1))
 
         self.movement = np.zeros((1, 3))
 
