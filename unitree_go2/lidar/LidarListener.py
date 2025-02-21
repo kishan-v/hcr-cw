@@ -1,8 +1,11 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
+from nav_msgs.msg import Odometry
 
 import numpy as np
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from mpl_toolkits.mplot3d import Axes3D
@@ -11,13 +14,16 @@ import threading
 import time
 import argparse
 import json
+import asyncio
+import socket 
+import json
 
 from abc import abstractmethod
 
 
 # 5m x 5 x 2 = 50m^3
 # 0.1 * 0.1 * 0.1 = 0.001
-# total number of cubes -> 50000
+# total number of cubes -> 125000
 # 1 bit per item in the array
 # 50000bits -> 50000/8000 = 6.25kb per box 
 
@@ -29,8 +35,6 @@ from abc import abstractmethod
 #   col_offset = (y / step_size) * amount_per_row
 #   height_offset = (z / step_size) * (amount_per_col * amount_per_height)
 # idx = height_offset + col_offset + row_offset
-
-
 
 class LidarSender:
     def __init__(self, step_size):
@@ -44,12 +48,17 @@ class LidarSender:
                 "height": 5,
                 "step_size": self.step_size,
             },
-            "timestamp": int(time.now()),
-            "box_vals": data,
+            "timestamp": int(time.time()),
+            # "box_vals": data,
         }
 
-    def send(self):
+        return json_data
+
+    def send(self, data):
+        data = self.serialise_occupancy_grid(data)
         pass
+      
+
 
 
 
@@ -87,7 +96,6 @@ class RemoveOffset(PostProcessingTransform):
             self.last_time = time.time() 
             self.ctr += 1
 
-            print("hallo: ", self.sum_time / self.ctr, " - ", time.time())
             # calculate max radius moved
             max_moved = max(self.sum_time * self.v_max / self.ctr, 1)
             
@@ -181,26 +189,7 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
         data[:, 1] += 5
         data[:, 2] -= np.min(data[:,2])
 
-        print("PROCESSING WITH SHAPE: ", data.shape)
-
-        # print(f"Got max: {np.max(rounded_data)} with size: {rounded_data.shape}")
-        # print(f"voxel_cent: {voxel_centroids.shape}")
-
-        # normalise
-        # min = np.min(voxel_centroids, axis=0).reshape((1,3))
-        # print(f"sizes: {rounded_data.shape}, {voxel_centroids.shape}, {min.shape}")
-        # voxel_centroids -= min.reshape((1,3))
-        # print(f"sizes: {rounded_data.shape}, {voxel_centroids.shape}, {min.shape}")
-
-        # print(f"max: {np.max(voxel_centroids)}")
-
-        x0 = data[0,0]
-        y0 = data[0,1]
-        z0 = data[0,2]
-        print(f"Got idxs: ({0}, {0}, {0}) -> idx: {self.cartesian_to_grid_idx(0+10*self.step_size, 0, 0)}")
-
         idx_arrays = self.cartesian_to_grid_idx(data[:, 0], data[:, 1], data[:, 2])
-        print("GOT IDX ARRAYS: ", idx_arrays)
 
         # create grid
         grid = np.zeros(int(self.x_width * self.y_width * self.z_width / (self.step_size ** 3)), dtype=bool)
@@ -235,11 +224,18 @@ class LidarProcessor(Node):
         self.ctr = 0
 
         # subscribe to the topic
-        self.subscriber = self.create_subscription(
+        self.pc_subscriber = self.create_subscription(
                 PointCloud2,
                 '/utlidar/cloud_deskewed',
                 self.lidar_callback,
                 10)
+
+        self.odom_subscriber = self.create_subscription(
+                Odometry,
+                'utlidar/robot_odom',
+                self.odom_callback,
+                10
+            )
 
         # initialise empty data
         self.data = np.empty((4, 0))
@@ -249,7 +245,7 @@ class LidarProcessor(Node):
         self.pipeline = PostProcessingPipeline()
         self.voxel_pipeline = PostProcessingPipeline()
 
-        self.pipeline.add_transform(RemoveOffset(20 / (60 * 60)))
+        # self.pipeline.add_transform(RemoveOffset(20 / (60 * 60)))
         self.pipeline.add_transform(RangeFilter(0.2, 5.0, 0.2, 5.0))
 
         self.voxel_pipeline.add_transform(ConvertToOccupancyGrid(10, 10, 3, 0.1))
@@ -259,6 +255,15 @@ class LidarProcessor(Node):
         self.point_limit = 10000
 
         self.occupancy_grid = np.empty((3, 0))
+
+        self.sender = LidarSender(0.1)
+
+        self.offset = np.zeros(3)
+
+    def odom_callback(self, msg):
+        self.get_logger().info(f"Received Odometry message")# with pose: {msg.pose.pose.position} bytes.")
+        pos = msg.pose.pose.position
+        self.offset = np.array([pos.x, pos.y, pos.z])
 
     # callback for receiving lidar data
     def lidar_callback(self, msg):
@@ -290,14 +295,15 @@ class LidarProcessor(Node):
             self.data = data
 
 
-        # print(f"shape of data {self.data.shape}")
-
         # get the current centroid
-        self.user_data = self.pipeline.apply(np.copy(self.data).transpose(), original_data).transpose()
-        # print(f"shape of user data {self.user_data.shape}")
+        usr_data = np.copy(self.data).transpose()
+        usr_data[:, :3] -= self.offset
+        self.user_data = self.pipeline.apply(usr_data, original_data).transpose()
 
         self.occupancy_grid = self.voxel_pipeline.apply(self.user_data.transpose())
-        # print(f"Occupancy: {self.occupancy_grid.shape}, with data: {self.occupancy_grid}")
+
+        self.sender.send(self.occupancy_grid.tolist())
+
 
 
 # live plot data
@@ -321,7 +327,7 @@ def plot_data(node):
 
     # read from the node
     while rclpy.ok():
-        if node.user_data.shape[0] > 0:
+        if node.user_data.shape[1] > 0:
             # extract data
             x, y, z, intensity = node.user_data
 
@@ -366,10 +372,8 @@ def plot_voxels(node):
                 x = idx_x + 0.5
                 y = idx_y + 0.5
                 z = idx_z + 0.5
-                print(f"{idx_x.shape}")
 
 
-                print(f"{x[0]}, {y[0]}, {z[0]}")
 
                 # Update the scatter plot with the new center points
                 sc._offsets3d = (x, y, z)
