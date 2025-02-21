@@ -26,7 +26,7 @@ class VideoCameraTrack(MediaStreamTrack):
 
     def __init__(self):
         super().__init__()
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(index=0)
         self.timestamp = 0
 
         # Configure camera
@@ -179,9 +179,18 @@ if __name__ == "__main__":
     # STUN servers help discover your public IP (and may enable direct P2P connection).
     # TURN servers can relay media if a direct connection cannot be established.
     ice_servers = [
-        RTCIceServer(urls=["stun:stun.l.google.com:19302"]),
+        RTCIceServer(
+            urls=["stun:stun.l.google.com:19302"]
+        ),  # TODO: uncomment this line
         # TODO: use a TURN server, uncomment and fill in TURN server details:
-        # RTCIceServer(urls=["turn:130.162.176.219:3478"]),
+        RTCIceServer(
+            urls=[
+                "turn:130.162.176.219:3478?transport=udp",
+                "turn:130.162.176.219:3478?transport=tcp",
+            ],
+            username="username",
+            credential="password",
+        ),
     ]
     configuration = RTCConfiguration(iceServers=ice_servers)
 
