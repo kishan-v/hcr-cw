@@ -131,13 +131,15 @@ class RangeFilter(PostProcessingTransform):
 
         lower_bound_filter = np.logical_and(abs(data[:, 0]) < self.x_min, abs(data[:, 1]) < self.y_min)
         upper_bound_filter = np.logical_or(abs(data[:, 0]) > self.x_max, abs(data[:, 1]) >self.y_max)
+        z_mask = data[:, 2] < -0.31
 
         # x_mask = np.logical_or(abs(data[:, 0]) < self.x_min,
         #        abs(data[:, 0]) > self.x_max)
         # y_mask = np.logical_or(abs(data[:, 1]) < self.y_min,
         #        abs(data[:, 1]) > self.y_max)
 
-        return np.logical_or(lower_bound_filter, upper_bound_filter)
+        mask = np.logical_or(lower_bound_filter, upper_bound_filter)
+        return np.logical_or(mask, z_mask)
 
     def apply(self, data, local_data = None):
         mask = self.create_filter(data) 
@@ -252,7 +254,7 @@ class LidarProcessor(Node):
 
         self.movement = np.zeros((1, 3))
 
-        self.point_limit = 10000
+        self.point_limit = 15000
 
         self.occupancy_grid = np.empty((3, 0))
 
@@ -321,9 +323,9 @@ def plot_data(node):
     ax.set_zlabel('Z')
     ax.set_title('Live Lidar Point Cloud')
 
-    ax.set_xlim3d(-5, 5)
-    ax.set_ylim3d(-5, 5)
-    ax.set_zlim3d(-5, 5)
+    ax.set_xlim3d(-2, 2)
+    ax.set_ylim3d(-2, 2)
+    ax.set_zlim3d(-2, 2)
 
     # read from the node
     while rclpy.ok():
