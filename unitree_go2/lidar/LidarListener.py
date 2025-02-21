@@ -175,6 +175,7 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
 
 
     def rounding_policy(self, data, dist):
+         # TODO: investigate if this also works in cartesian space
          return (data + dist // 2) // dist * dist 
 
 
@@ -261,16 +262,37 @@ class LidarProcessor(Node):
         self.sender = LidarSender(0.1)
 
         self.offset = np.zeros(3)
+        self.dir = 0
+
+        self.print_ctr = 0
 
     def odom_callback(self, msg):
-        self.get_logger().info(f"Received Odometry message")# with pose: {msg.pose.pose.position} bytes.")
+        # self.get_logger().info(f"Received Odometry message")# with pose: {msg.pose.pose.position} bytes.")
         pos = msg.pose.pose.position
+        orientation = msg.pose.pose.orientation
+
         self.offset = np.array([pos.x, pos.y, pos.z])
+
+        d = np.array([2 * (orientation.x * orientation.z + orientation.y * orientation.w), 2 * (orientation.y * orientation.z - orientation.x * orientation.w), 1 - 2 * (orientation.x **2 + orientation.y **2)])
+
+        # norm_d = np.linalg.norm(d, ord=1)
+        # dot = np.dot(d, np.array([0,0,1]))
+
+        # theta = np.arccos(dot / norm_d)
+        theta = np.arctan2(d[1] , d[0])
+
+        self.print_ctr += 1   
+        if self.print_ctr == 1:
+            print(f"GOT ANGLE: {theta}")
+        elif self.print_ctr == 10:
+            self.print_ctr = 0
+
+
 
     # callback for receiving lidar data
     def lidar_callback(self, msg):
 
-        self.get_logger().info(f"Received PointCloud2 message with {len(msg.data)} bytes.")
+        # self.get_logger().info(f"Received PointCloud2 message with {len(msg.data)} bytes.")
 
         # process lidar data
         self.process_lidar_data(msg.data)
