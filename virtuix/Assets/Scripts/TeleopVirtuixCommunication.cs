@@ -1,4 +1,5 @@
 using UnityEngine;
+using static System.Math;
 using System;
 using WebSocketSharp;
 using Newtonsoft.Json;
@@ -114,14 +115,16 @@ public class TeleopOmniCommunication : MonoBehaviour
 
             // Retrieve the calculated movement vectors.
             Vector3 forwardMovement = omniMovement.GetForwardMovement();
-            Vector3 strafeMovement = omniMovement.GetStrafeMovement();
-	        float rotation = omniMovement.currentOmniYaw;
+            float degreesRotation = omniMovement.currentOmniYaw;
+            float radiansRotation = (float)(degreesRotation * (Math.PI / 180.0));
+            radiansRotation = (float)Math.IEEERemainder(radiansRotation, 2 * Math.PI);
+            Debug.Log("Current Rotation: " + radiansRotation);
 
             // For this example, we map:
             // • Forward/backward speed from the forwardMovement's z value.
             // • Turning (angular) speed from the strafeMovement's x value.
             double linearCommand = forwardMovement.z;
-            double angularCommand = strafeMovement.x;
+
 
             // Apply a deadzone so we only send meaningful commands.
             if (Mathf.Abs((float)linearCommand) < movementThreshold)
@@ -139,7 +142,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                     // In this protocol, we assume the linear motion is along the x-axis.
                     // Adjust the mapping as needed (e.g. swap axes) to suit your application.
                     linear = new { x = linearCommand, y = 0.0, z = 0.0 },
-                    angular = new { x = 0.0, y = 0.0, z = angularCommand },
+                    angular = new { x = 0.0, y = 0.0, z = radiansRotation },
                     timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 }
             };
@@ -148,7 +151,7 @@ public class TeleopOmniCommunication : MonoBehaviour
             try
             {
                 ws.Send(message);
-                Debug.Log("Sent command: " + message + "Rotation: " + rotation);
+                Debug.Log("Sent command: " + message);
             }
             catch (Exception ex)
             {
