@@ -1,21 +1,3 @@
-
-
-###########
-
-
-# NOTE: THIS RECEIVER DOES NOT FULLY IMPLEMENT THE ICE CANDIDATE EXCHANGE SO ONLY WORKS IN LOCAL NETWORK
-
-#!!!!!!!
-
-###########
-
-
-
-
-
-
-
-
 #!/usr/bin/env python3
 import asyncio
 import cv2
@@ -106,16 +88,14 @@ if __name__ == "__main__":
     else:
         logging.basicConfig(level=logging.INFO)
 
-    # --- TUNABLE PARAMETERS: ICE Servers (STUN/TURN) ---
     ice_servers = [
         RTCIceServer(urls=["stun:stun.l.google.com:19302"]),
-        # Uncomment and configure TURN server if needed:
-        # RTCIceServer(urls=["turn:130.162.176.219:3478"]),
+        RTCIceServer(urls=["turn:130.162.176.219:3478"], username="username", credential="password"),
     ]
     configuration = RTCConfiguration(iceServers=ice_servers)
 
     pc = RTCPeerConnection(configuration)
-    signaling = WebSocketSignaling("ws://localhost:8765")  # TODO:
+    signaling = WebSocketSignaling("ws://130.162.176.219:8765")  # TODO:
 
     try:
         asyncio.get_event_loop().run_until_complete(run(pc, signaling))
