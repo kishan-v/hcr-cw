@@ -58,9 +58,13 @@ public class WebRTCReceiver : MonoBehaviour
         var configuration = new RTCConfiguration
         {
             iceServers = new[] {
-            new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } },
-            // new RTCIceServer { urls = new string[] { "turn:130.162.176.219:3478" } }
-            }
+                new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } },
+                new RTCIceServer { 
+                    urls = new string[] { "turn:130.162.176.219:3478?transport=udp", "turn:130.162.176.219:3478?transport=tcp" },
+                    username = "username",
+                    credential = "password"
+                },
+            },
         };
         peerConnection = new RTCPeerConnection(ref configuration);
 
