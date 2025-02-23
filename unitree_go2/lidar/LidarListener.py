@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
+from std_msgs.msg import String 
 from nav_msgs.msg import Odometry
 
 import numpy as np
@@ -36,26 +37,28 @@ from abc import abstractmethod
 #   height_offset = (z / step_size) * (amount_per_col * amount_per_height)
 # idx = height_offset + col_offset + row_offset
 
+def serialise_occupancy_grid(data, step_size=0.10)->str:
+    json_data = {
+        "world_dims": {
+            "width": 5,
+            "depth": 5,
+            "height": 5,
+            "step_size": step_size,
+        },
+        "timestamp": int(time.time()),
+        "box_vals": data,
+    }
+
+    return json.dumps(json_data)
+
 class LidarSender:
     def __init__(self, step_size):
         self.step_size = step_size
 
-    def serialise_occupancy_grid(self, data)->str:
-        json_data = {
-            "world_dims": {
-                "width": 5,
-                "depth": 5,
-                "height": 5,
-                "step_size": self.step_size,
-            },
-            "timestamp": int(time.time()),
-            # "box_vals": data,
-        }
-
-        return json_data
+   
 
     def send(self, data):
-        data = self.serialise_occupancy_grid(data)
+        data = serialise_occupancy_grid(data)
         pass
       
 
@@ -240,6 +243,8 @@ class LidarProcessor(Node):
                 10
             )
 
+        self.occupancy_pub = self.create_publisher(String, "occupancy_grid", 10)
+
         # initialise empty data
         self.data = np.empty((4, 0))
         self.user_data = np.empty((3, 0))
@@ -327,6 +332,12 @@ class LidarProcessor(Node):
         self.occupancy_grid = self.voxel_pipeline.apply(self.user_data.transpose())
 
         self.sender.send(self.occupancy_grid.tolist())
+
+        
+        # publish to topic
+        ros_msg = String()
+        ros_msg.data = serialise_occupancy_grid(self.occupancy_grid.tolist())
+        self.occupancy_pub.publish(ros_msg)
 
 
 
