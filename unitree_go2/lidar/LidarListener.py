@@ -63,8 +63,6 @@ class LidarSender:
       
 
 
-
-
 '''Base Class for Transforms'''
 class PostProcessingTransform:
     def __init__(self, transform_name):
@@ -120,6 +118,7 @@ class RemoveOffset(PostProcessingTransform):
         return out 
 
 
+
 '''Remove all points within a certain range'''
 class RangeFilter(PostProcessingTransform):
     def __init__(self, x_min, x_max, y_min, y_max):
@@ -136,17 +135,13 @@ class RangeFilter(PostProcessingTransform):
         upper_bound_filter = np.logical_or(abs(data[:, 0]) > self.x_max, abs(data[:, 1]) >self.y_max)
         z_mask = data[:, 2] < -0.31
 
-        # x_mask = np.logical_or(abs(data[:, 0]) < self.x_min,
-        #        abs(data[:, 0]) > self.x_max)
-        # y_mask = np.logical_or(abs(data[:, 1]) < self.y_min,
-        #        abs(data[:, 1]) > self.y_max)
-
         mask = np.logical_or(lower_bound_filter, upper_bound_filter)
         return np.logical_or(mask, z_mask)
 
     def apply(self, data, local_data = None):
         mask = self.create_filter(data) 
         return data[~mask]
+
 
 
 '''Convert discrete cartesian points into an occupancy grid'''
@@ -185,7 +180,7 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
     def apply(self, data, local_data = None):
         # rounded_data = np.around(data, decimals = 1)
 
-        # downsample by roundin
+        # downsample by rounding
         # rounded_data = (data[:, :3] / self.step_size).astype(int)
         data = self.rounding_policy(data, self.step_size)
         data = np.unique(data, axis=0)
@@ -206,6 +201,7 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
         return grid
 
 
+
 class PostProcessingPipeline:
     def __init__(self):
         self.transforms = []
@@ -219,6 +215,7 @@ class PostProcessingPipeline:
             data = transform.apply(data, local_data=local_data)
 
         return data
+
 
 
 class LidarProcessor(Node):
@@ -269,8 +266,8 @@ class LidarProcessor(Node):
         self.offset = np.zeros(3)
         self.dir = 0
 
-        self.print_ctr = 0
 
+    """ process odometry data """
     def odom_callback(self, msg):
         # self.get_logger().info(f"Received Odometry message")# with pose: {msg.pose.pose.position} bytes.")
         pos = msg.pose.pose.position
@@ -280,23 +277,12 @@ class LidarProcessor(Node):
 
         d = np.array([2 * (orientation.x * orientation.z + orientation.y * orientation.w), 2 * (orientation.y * orientation.z - orientation.x * orientation.w), 1 - 2 * (orientation.x **2 + orientation.y **2)])
 
-        # norm_d = np.linalg.norm(d, ord=1)
-        # dot = np.dot(d, np.array([0,0,1]))
-
         # theta = np.arccos(dot / norm_d)
         theta = np.arctan2(d[1] , d[0])
 
-        self.print_ctr += 1   
-        if self.print_ctr == 1:
-            print(f"GOT ANGLE: {theta}")
-        elif self.print_ctr == 10:
-            self.print_ctr = 0
 
-
-
-    # callback for receiving lidar data
+    """ process lidar data """
     def lidar_callback(self, msg):
-
         # self.get_logger().info(f"Received PointCloud2 message with {len(msg.data)} bytes.")
 
         # process lidar data
@@ -309,11 +295,8 @@ class LidarProcessor(Node):
         
         # reshape the data into [[x, y, z, intensity]]
         original_data = original_data.reshape(-1, 4)
-        #test movement
-        # original_data[:, :3] = original_data[:, :3] + self.movement
-        # self.movement += np.random.uniform(-5, 5, size=(1, 3))
 
-        # 1. add all data to the current map
+        # add all data to the current map
         data = np.append(self.data, original_data.transpose(), axis=1)
 
         #remove first n points
@@ -324,16 +307,19 @@ class LidarProcessor(Node):
             self.data = data
 
 
-        # get the current centroid
+        # get the current centroid and center the data
         usr_data = np.copy(self.data).transpose()
         usr_data[:, :3] -= self.offset
-        self.user_data = self.pipeline.apply(usr_data, original_data).transpose()
 
+        # apply data processing pipeline
+        self.user_data = self.pipeline.apply(usr_data, original_data).transpose()
         self.occupancy_grid = self.voxel_pipeline.apply(self.user_data.transpose())
 
+
+        # send data
         self.sender.send(self.occupancy_grid.tolist())
 
-        
+
         # publish to topic
         ros_msg = String()
         ros_msg.data = serialise_occupancy_grid(self.occupancy_grid.tolist())
