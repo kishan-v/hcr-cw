@@ -46,9 +46,9 @@ void StartKeyboardThread(WebSocket ws)
                     case 's': linear_x = -1.0; break;
                     case 'a': angular_z = 1.0; break;
                     case 'd': angular_z = -1.0; break;
-                    case 'x': 
-                        linear_x = 0.0; 
-                        angular_z = 0.0; 
+                    case 'x':
+                        linear_x = 0.0;
+                        angular_z = 0.0;
                         break;
                 }
 
@@ -95,7 +95,35 @@ while (!shouldQuit)
 
         ws.OnMessage += (sender, e) =>
         {
+    
             Console.WriteLine("Received reply: " + e.Data);
+            try
+            {
+         
+                var messageObj = JsonConvert.DeserializeObject<dynamic>(e.Data);
+
+    
+                if (messageObj != null && messageObj.world_dims != null)
+                {
+                    Console.WriteLine("Received LiDAR data:");
+                    Console.WriteLine("  World Dimensions:");
+                    Console.WriteLine($"    Width: {messageObj.world_dims.width}");
+                    Console.WriteLine($"    Depth: {messageObj.world_dims.depth}");
+                    Console.WriteLine($"    Height: {messageObj.world_dims.height}");
+                    Console.WriteLine($"    Step Size: {messageObj.world_dims.step_size}");
+                    Console.WriteLine("  Timestamp: " + messageObj.timestamp);
+                    Console.WriteLine("  Box Values: " + messageObj.box_vals);
+                }
+                else
+                {
+    
+                    Console.WriteLine("Received non-LiDAR message: " + e.Data);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error parsing message: " + ex.Message);
+            }
         };
 
         ws.OnError += (sender, e) =>
