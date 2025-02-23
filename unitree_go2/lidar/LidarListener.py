@@ -7,6 +7,7 @@ from nav_msgs.msg import Odometry
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
+
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from mpl_toolkits.mplot3d import Axes3D
@@ -14,9 +15,6 @@ from mpl_toolkits.mplot3d import Axes3D
 import threading
 import time
 import argparse
-import json
-import asyncio
-import socket 
 import json
 
 from abc import abstractmethod
@@ -363,6 +361,7 @@ def plot_data(node):
         
         plt.pause(0.5)
 
+
 def plot_voxels(node):
     # Turn on interactive mode
     plt.ion()  # Enable interactive mode
@@ -406,7 +405,7 @@ def plot_voxels(node):
 def print_data(node):
     while rclpy.ok():
         time.sleep(0.5)
-        print(node.occupancy_grid.shape)
+        print(node.data)
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(description="CLI for the Lidar Processor")
