@@ -49,11 +49,11 @@ def serialise_occupancy_grid(data, step_size=0.10)->str:
 
     return json.dumps(json_data)
 
+
+
 class LidarSender:
     def __init__(self, step_size):
         self.step_size = step_size
-
-   
 
     def send(self, data):
         data = serialise_occupancy_grid(data)
@@ -392,8 +392,6 @@ def plot_voxels(node):
                 x = idx_x + 0.5
                 y = idx_y + 0.5
                 z = idx_z + 0.5
-
-
 
                 # Update the scatter plot with the new center points
                 sc._offsets3d = (x, y, z)
