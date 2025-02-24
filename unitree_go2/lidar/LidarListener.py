@@ -11,6 +11,8 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.patches as patches
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import threading
 import time
@@ -38,9 +40,9 @@ from abc import abstractmethod
 def serialise_occupancy_grid(data, step_size=0.10)->str:
     json_data = {
         "world_dims": {
-            "width": 5,
-            "depth": 5,
-            "height": 5,
+            "width": 4,
+            "depth": 4,
+            "height": 2,
             "step_size": step_size,
         },
         "timestamp": int(time.time()),
@@ -104,7 +106,7 @@ class RemoveOffset(PostProcessingTransform):
             centroid_data = filt.apply(centroid_data)
         else:
             centroid_data = local_data
-            self._initialised = True
+            self.initialised = True
 
         # estimate the new centroid
         self.x_k = np.median(centroid_data[:, :3], axis=0)
@@ -131,7 +133,7 @@ class RangeFilter(PostProcessingTransform):
 
         lower_bound_filter = np.logical_and(abs(data[:, 0]) < self.x_min, abs(data[:, 1]) < self.y_min)
         upper_bound_filter = np.logical_or(abs(data[:, 0]) > self.x_max, abs(data[:, 1]) >self.y_max)
-        z_mask = data[:, 2] < -0.31
+        z_mask = np.logical_or(data[:, 2] < -0.31, data[:,2] > (-0.31 + 2))
 
         mask = np.logical_or(lower_bound_filter, upper_bound_filter)
         return np.logical_or(mask, z_mask)
@@ -180,24 +182,108 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
 
         # downsample by rounding
         # rounded_data = (data[:, :3] / self.step_size).astype(int)
+        data = data[:, :3]
         data = self.rounding_policy(data, self.step_size)
         data = np.unique(data, axis=0)
 
         # recenter the data
-        data[:, 0] += 5
-        data[:, 1] += 5
-        data[:, 2] -= np.min(data[:,2])
+        data[:, 0] += self.x_width / 2
+        data[:, 1] += self.y_width / 2
+        data[:, 2] += self.z_width / 2
 
         idx_arrays = self.cartesian_to_grid_idx(data[:, 0], data[:, 1], data[:, 2])
 
-        # create grid
+        # # create grid
         grid = np.zeros(int(self.x_width * self.y_width * self.z_width / (self.step_size ** 3)), dtype=bool)
         
-        # populate_grid
+        # # populate_grid
         grid[idx_arrays] = True
 
-        return grid
+        return grid 
 
+
+'''Convert discrete cartesian points into an occupancy grid'''
+class RoundData(PostProcessingTransform):
+    def __init__(self, x_width, y_width, z_width, step_size):
+        super().__init__("occupancy converter")
+
+        self.x_width = x_width
+        self.y_width = y_width
+        self.z_width = z_width
+
+        self.num_rows = x_width / step_size
+        self.num_cols = y_width / step_size
+        self.num_heights = z_width / step_size
+
+        self.step_size = step_size 
+
+    ''' Convert the cartesian coordinates to grid index '''
+    def cartesian_to_grid_idx(self, x, y, z):
+       row_offset = x / self.step_size 
+       col_offset = (y / self.step_size) * self.num_rows
+       height_offset = (z / self.step_size) * (self.num_rows * self.num_cols)
+
+       idx = row_offset + col_offset + height_offset
+        
+       # assert idx <= self.num_rows * self.num_cols * self.num_heights
+
+       return np.asarray(idx, dtype=int)
+
+
+    def rounding_policy(self, data, dist):
+         # TODO: investigate if this also works in cartesian space
+         return (data + dist // 2) // dist * dist 
+
+    def apply(self, data, local_data = None):
+        # rounded_data = np.around(data, decimals = 1)
+
+        # downsample by rounding
+        # rounded_data = (data[:, :3] / self.step_size).astype(int)
+        data = data[:, :3]
+        data = self.rounding_policy(data, self.step_size)
+        data = np.unique(data, axis=0)
+
+        # recenter the data
+        # data[:, 0] += self.x_width / 2
+        # data[:, 1] += self.y_width / 2
+        # data[:, 2] += self.z_width / 2
+
+        return data 
+
+
+def test_data_recovery(data):
+    data = json.loads(data)
+
+    x_area = data["world_dims"]["width"] * (1 / data["world_dims"]["step_size"])
+    y_area = data["world_dims"]["depth"] * (1 / data["world_dims"]["step_size"])
+
+    y_area *= x_area
+
+    step_size = data["world_dims"]["step_size"]
+
+    compressed_data = np.array(data["box_vals"])
+
+    indices = np.where(compressed_data)[0]
+
+    # reverse the calculation
+    
+    #z = floor(index / z_width)
+    #y = floor((index % z_width) / y_width)
+    #x = (((index % z_width) % y_width) / x_width) (assert its an int)
+
+    z = np.floor(indices / y_area)
+    y = np.floor((indices % y_area) / x_area)
+    x = np.floor((indices % y_area) % x_area)
+
+    x *= data["world_dims"]["step_size"]
+    y *= data["world_dims"]["step_size"]
+    z *= data["world_dims"]["step_size"]
+
+    x -= data["world_dims"]["width"] / 2
+    y -= data["world_dims"]["depth"] / 2
+    z -= data["world_dims"]["height"] / 2
+
+    return np.array([x, y, z])
 
 
 class PostProcessingPipeline:
@@ -237,6 +323,8 @@ class LidarProcessor(Node):
                 self.odom_callback,
                 10
             )
+        
+        self.recovered = np.empty((3, 0))
 
         self.occupancy_pub = self.create_publisher(String, "occupancy_grid", 10)
 
@@ -247,11 +335,13 @@ class LidarProcessor(Node):
         # initialise pipeline
         self.pipeline = PostProcessingPipeline()
         self.voxel_pipeline = PostProcessingPipeline()
+        self.round_pipeline = PostProcessingPipeline()
 
         # self.pipeline.add_transform(RemoveOffset(20 / (60 * 60)))
-        self.pipeline.add_transform(RangeFilter(0.2, 5.0, 0.2, 5.0))
+        self.pipeline.add_transform(RangeFilter(0.2, 2.0, 0.2, 2.0))
 
-        self.voxel_pipeline.add_transform(ConvertToOccupancyGrid(10, 10, 3, 0.1))
+        self.voxel_pipeline.add_transform(ConvertToOccupancyGrid(4, 4, 2, 0.1))
+        self.round_pipeline.add_transform(RoundData(4, 4, 2, 0.1))
 
         self.movement = np.zeros((1, 3))
 
@@ -312,15 +402,12 @@ class LidarProcessor(Node):
         # apply data processing pipeline
         self.user_data = self.pipeline.apply(usr_data, original_data).transpose()
         self.occupancy_grid = self.voxel_pipeline.apply(self.user_data.transpose())
-
-
-        # send data
-        self.sender.send(self.occupancy_grid.tolist())
-
+        self.rounded_data = self.round_pipeline.apply(self.user_data.transpose())
 
         # publish to topic
         ros_msg = String()
         ros_msg.data = serialise_occupancy_grid(self.occupancy_grid.tolist())
+        self.recovered = test_data_recovery(ros_msg.data)
         self.occupancy_pub.publish(ros_msg)
 
 
@@ -348,13 +435,13 @@ def plot_data(node):
     while rclpy.ok():
         if node.user_data.shape[1] > 0:
             # extract data
-            x, y, z, intensity = node.user_data
+            x, y, z = node.recovered
 
             # update scatter plot
             sc._offsets3d = (x, y, z)
 
             # set the colour based on intensity
-            sc.set_array(intensity)
+            sc.set_array(100)
 
             # draw the updates
             plt.draw()
@@ -362,43 +449,59 @@ def plot_data(node):
         plt.pause(0.5)
 
 
-def plot_voxels(node):
-    # Turn on interactive mode
-    plt.ion()  # Enable interactive mode
 
-    # Set up the 3D plot
+def plot_voxels(node):
+    plt.ion()
+
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    # Create an initially empty scatter plot for the voxel centers
-    sc = ax.scatter([], [], [], c=[], cmap='viridis', marker='o', s=1)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_title('Live Voxel Grid Center Points')
+    ax.set_title('Live Lidar Voxel Grid')
 
-    ax.set_xlim3d(0, 500)
-    ax.set_ylim3d(0, 500)
-    ax.set_zlim3d(0, 5)
+    ax.set_xlim3d(-2, 2)
+    ax.set_ylim3d(-2, 2)
+    ax.set_zlim3d(-2, 2)
 
-    # Main loop: update the plot as long as rclpy is OK
+    cube_size = 0.1
+
     while rclpy.ok():
-        # Make sure the occupancy grid exists and has data
-        if node.occupancy_grid is not None and node.occupancy_grid.size > 0:
-            # Find the indices of all occupied voxels (True values)
-            idx_x, idx_y, idx_z = np.nonzero(node.occupancy_grid)
-            if idx_x.size > 0:
-                # Assuming each voxel spans 1 unit, adding 0.5 gives the center.
-                x = idx_x + 0.5
-                y = idx_y + 0.5
-                z = idx_z + 0.5
+        if node.user_data.shape[1] > 0:
+            x, y, z = node.recovered  
+            ax.collections.clear()
 
-                # Update the scatter plot with the new center points
-                sc._offsets3d = (x, y, z)
-                sc.set_array(1)
-                plt.draw()
+            # draw a cube
+            def draw_cube(ax, center, size, color):
+                x, y, z = center
+                d = size / 2
 
-        plt.pause(0.5) 
+                # cube vertices
+                vertices = [
+                    [(x-d, y-d, z-d), (x+d, y-d, z-d), (x+d, y+d, z-d), (x-d, y+d, z-d)],  # bottom
+                    [(x-d, y-d, z+d), (x+d, y-d, z+d), (x+d, y+d, z+d), (x-d, y+d, z+d)],  # top
+                    [(x-d, y-d, z-d), (x-d, y+d, z-d), (x-d, y+d, z+d), (x-d, y-d, z+d)],  # left
+                    [(x+d, y-d, z-d), (x+d, y+d, z-d), (x+d, y+d, z+d), (x+d, y-d, z+d)],  # right
+                    [(x-d, y-d, z-d), (x+d, y-d, z-d), (x+d, y-d, z+d), (x-d, y-d, z+d)],  # front
+                    [(x-d, y+d, z-d), (x+d, y+d, z-d), (x+d, y+d, z+d), (x-d, y+d, z+d)],  # back
+                ]
+
+                # Create the cube
+                cube = Poly3DCollection(vertices, facecolors=color, edgecolors='black', alpha=0.8)
+                ax.add_collection3d(cube)
+
+            color = plt.cm.viridis(100)
+
+            # draw the cubes
+            for xi, yi, zi in zip(x, y, z):
+                draw_cube(ax, (xi, yi, zi), cube_size, color)
+
+            # redraw the visible plot
+            plt.draw()
+        
+        plt.pause(0.5)
+
 
 def print_data(node):
     while rclpy.ok():
