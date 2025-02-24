@@ -5,6 +5,7 @@ import av
 import argparse
 import logging
 import fractions
+import time
 from typing import Optional
 
 from aiortc import (
@@ -16,52 +17,89 @@ from aiortc import (
     RTCIceCandidate,
 )
 from websocket_signaling import WebSocketSignaling
+from concurrent.futures import ThreadPoolExecutor
+from computer_vision import process_frame
 
 
 WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
+TURN_SERVER_URI = "turn:130.162.176.219:3478"
 VIDEO_SOURCE = "webcam"  # "webcam" or "theta"
-# VIDEO_SOURCE = "theta" 
+# VIDEO_SOURCE = "theta"
+CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a frame.
 
 
 class VideoCameraTrack(MediaStreamTrack):
     kind = "video"
 
-    def __init__(self, video_capture: Optional[cv2.VideoCapture] = None):
+    def __init__(self, video_capture: Optional[cv2.VideoCapture] = None, cv_interval_secs: float = 1.0):
+        """
+        :param video_capture: cv2.VideoCapture object (or None to open default)
+        :param cv_rate: Minimum seconds between running CV processing on a frame.
+        """
         super().__init__()
         if video_capture is not None:
             self.cap = video_capture
         else:
             self.cap = cv2.VideoCapture(index=0)
         self.timestamp = 0
+        self.cv_interval_secs = cv_interval_secs
+        self.last_cv_time = 0
+        self.executor = ThreadPoolExecutor(max_workers=1)  # ThreadPoolExecutor better than ProcessPoolExecutor for GPU acceleration?
 
         # Configure camera
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        self.cap.set(cv2.CAP_PROP_FPS, 30)
+        # self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        # self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        # self.cap.set(cv2.CAP_PROP_FPS, 30)
+
+        # self.window_name = "Local Preview"
+        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
 
     async def recv(self):
         pts, time_base = await self.next_timestamp()
 
         # Sleep to match frame rate
-        await asyncio.sleep(1 / 30)
+        # await asyncio.sleep(1 / 30)
 
         ret, frame = self.cap.read()
         if not ret:
             raise Exception("Failed to read frame from webcam")
 
-        # Convert frame and set timestamp
+        current_time = time.time()
+        if current_time - self.last_cv_time >= self.cv_interval_secs:
+            self.last_cv_time = current_time
+            loop = asyncio.get_event_loop()
+            try:
+                # Offload processing to executor without blocking the main loop.
+                frame = await loop.run_in_executor(self.executor, process_frame, frame)
+            except Exception as e:
+                print(f"CV processing error: {e}")
+                # If processing fails, use the original frame.
+
+        # # Display frame using imshow in a non-blocking way
+        # cv2.imshow(self.window_name, frame)
+        # cv2.waitKey(delay=1)  # Wait 1ms - allows window to update without blocking
+
+        # Optional: resize frame (to reduce bandwidth)
+        # frame = cv2.resize(frame, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)  # TODO: hardware acceleration? Move to computer_vision.py?
         video_frame = av.VideoFrame.from_ndarray(frame, format="bgr24")
         video_frame.pts = pts
         video_frame.time_base = time_base
+
+        video_frame.opaque = {}
+        video_frame.opaque["send_time"] = time.time()
 
         return video_frame
 
     async def next_timestamp(self):
         """Generate timestamps for frames"""
-        time_base = fractions.Fraction(1, 30)  # 30 fps
-        pts = int(self.timestamp * 30)
+        framerate = cv2.CAP_PROP_FPS
+        time_base = fractions.Fraction(1, framerate)
+        pts = int(self.timestamp * framerate)
         self.timestamp += 1
         return pts, time_base
+
+    def __del__(self):
+        cv2.destroyWindow(self.window_name)
 
 
 async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
@@ -114,30 +152,35 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
             capture = cv2.VideoCapture(index=0)
             print("Opening webcam")
         elif VIDEO_SOURCE == "theta":
+            # gst_pipeline = ("thetauvcsrc ! decodebin ! autovideoconvert ! video/x-raw,format=BGRx "
+                            # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
+            # gst_pipeline = ("thetauvcsrc ! queue ! h264parse ! nvdec ! gldownload ! queue "
+                            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
+            # Use the Theta capture pipeline with mode=4K for WebRTC streaming
             gst_pipeline = (
-                "thetauvcsrc mode=4K ! queue ! h264parse ! decodebin ! queue ! "  # TODO: use nvec
-                "videoconvert ! appsink sync=false"
+                "thetauvcsrc mode=4K ! decodebin ! autovideoconvert ! "
+                "video/x-raw,format=BGRx ! queue ! videoconvert ! "
+                "video/x-raw,format=BGR ! queue ! appsink"
             )
-            # Open the GStreamer pipeline in OpenCV
             capture = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
             print(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
             if not capture.isOpened():
                 raise IOError('Cannot open RICOH THETA with the given pipeline.')
-        else:
-            raise ValueError("Invalid video source. Must be 'webcam' or 'theta'")
+            else:
+                raise ValueError("Invalid video source. Must be 'webcam' or 'theta'")
 
-        # 1) Add local track
-        local_video = VideoCameraTrack(video_capture=capture)
+        # Add local track
+        local_video = VideoCameraTrack(video_capture=capture, cv_interval_secs=CV_INTERVAL_SECS)
         pc.addTrack(local_video)
 
-        # 2) Create and send offer
+        # Create and send offer
         offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
         await signaling.send(pc.localDescription)
 
         print("Sent SDP offer to signaling server")
 
-        # 3) Wait for the remote answer from Unity
+        # Wait for the remote answer from Unity
         remote_msg = await signaling.receive()
         if (
             isinstance(remote_msg, RTCSessionDescription)
@@ -148,7 +191,7 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
         else:
             print("Did not receive valid SDP answer")
 
-        # 4) Keep the connection alive so video continues streaming
+        # Keep the connection alive so video continues streaming
         while True:
             try:
                 msg = await signaling.receive()
@@ -178,6 +221,7 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
     except Exception as e:
         print(f"Error: {e}")
     finally:
+        cv2.destroyAllWindows()
         await pc.close()
         await signaling.close()
 
@@ -200,12 +244,11 @@ if __name__ == "__main__":
     ice_servers = [
         RTCIceServer(
             urls=["stun:stun.l.google.com:19302"]
-        ),  # TODO: uncomment this line
-        # TODO: use a TURN server, uncomment and fill in TURN server details:
+        ),
         RTCIceServer(
             urls=[
-                "turn:130.162.176.219:3478?transport=udp",
-                "turn:130.162.176.219:3478?transport=tcp",
+                f"{TURN_SERVER_URI}?transport=udp",
+                f"{TURN_SERVER_URI}?transport=tcp",
             ],
             username="username",
             credential="password",
@@ -214,7 +257,7 @@ if __name__ == "__main__":
     configuration = RTCConfiguration(iceServers=ice_servers)
 
     pc = RTCPeerConnection(configuration)
-    signaling = WebSocketSignaling(uri=WEBSOCKET_SIGNALLING_URI)  # TODO:
+    signaling = WebSocketSignaling(uri=WEBSOCKET_SIGNALLING_URI)
 
     try:
         asyncio.get_event_loop().run_until_complete(run(pc, signaling))
