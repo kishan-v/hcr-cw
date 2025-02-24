@@ -52,17 +52,6 @@ def serialise_occupancy_grid(data, step_size=0.10)->str:
     return json.dumps(json_data)
 
 
-
-class LidarSender:
-    def __init__(self, step_size):
-        self.step_size = step_size
-
-    def send(self, data):
-        data = serialise_occupancy_grid(data)
-        pass
-      
-
-
 '''Base Class for Transforms'''
 class PostProcessingTransform:
     def __init__(self, transform_name):
@@ -319,7 +308,7 @@ class LidarProcessor(Node):
 
         self.odom_subscriber = self.create_subscription(
                 Odometry,
-                'utlidar/robot_odom',
+                '/utlidar/robot_odom',
                 self.odom_callback,
                 10
             )
@@ -348,8 +337,6 @@ class LidarProcessor(Node):
         self.point_limit = 15000
 
         self.occupancy_grid = np.empty((3, 0))
-
-        self.sender = LidarSender(0.1)
 
         self.offset = np.zeros(3)
         self.dir = 0
