@@ -176,7 +176,7 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
         # recenter the data
         data[:, 0] += self.x_width / 2
         data[:, 1] += self.y_width / 2
-        data[:, 2] += self.z_width / 2
+        data[:, 2] -= np.min(data[:, 2])#self.z_width / 2
 
         idx_arrays = self.cartesian_to_grid_idx(data[:, 0], data[:, 1], data[:, 2])
 
