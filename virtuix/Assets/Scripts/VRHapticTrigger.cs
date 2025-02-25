@@ -11,10 +11,11 @@ public class VRHapticTrigger : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-
-        if (other.CompareTag("Controller"))
+        Debug.Log("event trigger");
+        if (other.CompareTag("GameController"))
         {
-    
+            Debug.Log("controller");
+
             hapticAction.Execute(0, 0.1f, 150, 0.75f, handType);
         }
     }
