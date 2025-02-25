@@ -55,7 +55,7 @@ class VideoCameraTrack(MediaStreamTrack):
         # Configure camera
         # self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         # self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        # self.cap.set(cv2.CAP_PROP_FPS, 30)
+        # self.cap.set(cv2.CAP_PROP_FPS, 30)  # TODO: enable 60 FPS?
 
         # self.window_name = "Local Preview"
         # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
@@ -86,7 +86,7 @@ class VideoCameraTrack(MediaStreamTrack):
         # cv2.waitKey(delay=1)  # Wait 1ms - allows window to update without blocking
 
         # Optional: resize frame (to reduce bandwidth)
-        # frame = cv2.resize(frame, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)  # TODO: hardware acceleration? Move to computer_vision.py?
+        # frame = cv2.resize(frame, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)  # TODO: add hardware acceleration? Move to computer_vision.py?
         video_frame = av.VideoFrame.from_ndarray(frame, format="bgr24")
         video_frame.pts = pts
         video_frame.time_base = time_base
@@ -249,11 +249,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # if args.verbose:
-    #     logging.basicConfig(level=logging.DEBUG)
-    # else:
-    #     logging.basicConfig(level=logging.INFO)
-    logging.basicConfig(level=logging.DEBUG)
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.info("Enable verbose logging with -v or --verbose")
+        logging.basicConfig(level=logging.INFO)
 
     ice_servers = [
         RTCIceServer(
