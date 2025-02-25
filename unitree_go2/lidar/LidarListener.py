@@ -6,7 +6,6 @@ from nav_msgs.msg import Odometry
 
 import numpy as np
 import matplotlib
-matplotlib.use("TkAgg")
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -20,7 +19,6 @@ import argparse
 import json
 
 from abc import abstractmethod
-
 
 # 5m x 5 x 2 = 50m^3
 # 0.1 * 0.1 * 0.1 = 0.001
@@ -315,7 +313,7 @@ class LidarProcessor(Node):
         
         self.recovered = np.empty((3, 0))
 
-        self.occupancy_pub = self.create_publisher(String, "occupancy_grid", 10)
+        self.occupancy_pub = self.create_publisher(String, "/occupancy_grid", 10)
 
         # initialise empty data
         self.data = np.empty((4, 0))
@@ -394,6 +392,8 @@ class LidarProcessor(Node):
         # publish to topic
         ros_msg = String()
         ros_msg.data = serialise_occupancy_grid(self.occupancy_grid.tolist())
+        with open("test_data.txt", "w") as file:
+            file.write(serialise_occupancy_grid(self.occupancy_grid.tolist()))
         self.recovered = test_data_recovery(ros_msg.data)
         self.occupancy_pub.publish(ros_msg)
 
