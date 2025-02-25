@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import asyncio
 import cv2
-import av
 import argparse
 import logging
+import time
 
 from aiortc import (
     RTCPeerConnection,
@@ -30,6 +30,17 @@ async def run(pc, signaling):
                 while True:
                     try:
                         frame = await track.recv()
+
+                        # Ensure opaque is a dict before attempting to get 'send_time'
+                        send_time = None
+                        if getattr(frame, "opaque", None) and isinstance(frame.opaque, dict):
+                            send_time = frame.opaque.get("send_time", None)
+
+                        if send_time is not None:
+                            now = time.time()
+                            one_way_delay = (now - send_time) * 1000  # delay in ms
+                            print(f"One-way delay: {one_way_delay:.1f} ms")
+
                         img = frame.to_ndarray(format="bgr24")
                         cv2.imshow("Received Video", img)
                         if cv2.waitKey(1) & 0xFF == ord("q"):
