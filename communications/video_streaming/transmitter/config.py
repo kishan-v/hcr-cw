@@ -37,22 +37,56 @@ SERVER_CONFIG = {
 #     ],
 # }
 
+# DEVICE_CONFIG = {
+#     "latency": 50,  # 50ms latency
+#     "input_opts": [
+#         "-f", "avfoundation",
+#         "-framerate", "29.97",
+#         "-pixel_format", "uyvy422",  # Added to force the correct pixel format on input
+#         "-i", "RICOH THETA Z1:none",
+#     ],
+#     "output_opts": [
+#         "-vf", "format=yuv422p",      # Added to ensure proper conversion before encoding
+#         "-f", "mpegts",
+#         "-c:v", "h264",
+#         "-preset", "ultrafast",
+#         "-tune", "zerolatency",
+#     ],
+# }
+
 DEVICE_CONFIG = {
     "latency": 50,  # 50ms latency
     "input_opts": [
         "-f", "avfoundation",
         "-framerate", "29.97",
-        "-pixel_format", "uyvy422",  # Added to force the correct pixel format on input
+        # "-pixel_format", "uyvy422",
         "-i", "RICOH THETA Z1:none",
     ],
     "output_opts": [
-        "-vf", "format=yuv422p",      # Added to ensure proper conversion before encoding
+        "-vf", "format=bgr24",      # Convert to bgr24 before encoding
         "-f", "mpegts",
         "-c:v", "h264",
         "-preset", "ultrafast",
         "-tune", "zerolatency",
     ],
 }
+
+# MACBOOK WEBCAM
+# DEVICE_CONFIG = {
+#     "latency": 50,  # 50ms latency
+#     "input_opts": [
+#         "-f", "avfoundation",
+#         "-framerate", "30",
+#         "-i", "FaceTime HD Camera",
+#     ],
+#     "output_opts": [
+#         "-vf", "format=bgr24",      # Convert to bgr24 before encoding
+#         "-f", "mpegts",
+#         "-c:v", "h264",
+#         "-preset", "ultrafast",
+#         "-tune", "zerolatency",
+#     ],
+# }
 
 # RICOH THETA 360
 # DEVICE_CONFIG = {

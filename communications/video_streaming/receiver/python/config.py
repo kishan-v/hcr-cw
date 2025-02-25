@@ -18,6 +18,6 @@ VIDEO_STREAM_PARAMS = {
     "width": 3840,
     "height": 1920,
     "framerate": 29.97,
-    "pixel_format": "uyvy422",
+    "pixel_format": "bgr24",
     "latency": 50,
 }
