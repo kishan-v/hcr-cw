@@ -31,7 +31,11 @@ CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a fra
 class VideoCameraTrack(MediaStreamTrack):
     kind = "video"
 
-    def __init__(self, video_capture: Optional[cv2.VideoCapture] = None, cv_interval_secs: float = 1.0):
+    def __init__(
+        self,
+        video_capture: Optional[cv2.VideoCapture] = None,
+        cv_interval_secs: float = 1.0,
+    ):
         """
         :param video_capture: cv2.VideoCapture object (or None to open default)
         :param cv_rate: Minimum seconds between running CV processing on a frame.
@@ -44,7 +48,9 @@ class VideoCameraTrack(MediaStreamTrack):
         self.timestamp = 0
         self.cv_interval_secs = cv_interval_secs
         self.last_cv_time = 0
-        self.executor = ThreadPoolExecutor(max_workers=1)  # ThreadPoolExecutor better than ProcessPoolExecutor for GPU acceleration?
+        self.executor = ThreadPoolExecutor(
+            max_workers=1
+        )  # ThreadPoolExecutor better than ProcessPoolExecutor for GPU acceleration?
 
         # Configure camera
         # self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -149,14 +155,16 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
     try:
         # USE WEBCAM OR RICOH_THETA (using GStreamer backend on Linux)
         if VIDEO_SOURCE == "webcam":
-            input("Are you sure you want to stream from the webcam and not RICOH Theta? Press Enter to continue...")
+            input(
+                "Are you sure you want to stream from the webcam and not RICOH Theta? Press Enter to continue..."
+            )
             capture = cv2.VideoCapture(index=0)
             print("Opening webcam")
         elif VIDEO_SOURCE == "theta":
             # gst_pipeline = ("thetauvcsrc ! decodebin ! autovideoconvert ! video/x-raw,format=BGRx "
-                            # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
+            # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
             # gst_pipeline = ("thetauvcsrc ! queue ! h264parse ! nvdec ! gldownload ! queue "
-                            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
+            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
             # Use the Theta capture pipeline with mode=4K for WebRTC streaming
             gst_pipeline = (
                 "thetauvcsrc mode=4K ! decodebin ! autovideoconvert ! "
@@ -166,12 +174,17 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
             capture = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
             print(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
             if not capture.isOpened():
-                raise IOError('Cannot open RICOH THETA with the given pipeline. Do you have GStreamer backend installed for opencv-python?')
+                raise IOError(
+                    "Cannot open RICOH THETA with the given pipeline. "
+                    "Do you have GStreamer backend installed for opencv-python?"
+                )
             else:
                 raise ValueError("Invalid video source. Must be 'webcam' or 'theta'")
 
         # Add local track
-        local_video = VideoCameraTrack(video_capture=capture, cv_interval_secs=CV_INTERVAL_SECS)
+        local_video = VideoCameraTrack(
+            video_capture=capture, cv_interval_secs=CV_INTERVAL_SECS
+        )
         pc.addTrack(local_video)
 
         # Create and send offer
@@ -244,13 +257,13 @@ if __name__ == "__main__":
 
     ice_servers = [
         RTCIceServer(
-            urls=["stun:stun.l.google.com:19302"]
+            urls=["stun:stun.l.google.com:19302"]  # type: ignore
         ),
         RTCIceServer(
             urls=[
                 f"{TURN_SERVER_URI}?transport=udp",
                 f"{TURN_SERVER_URI}?transport=tcp",
-            ],
+            ],  # type: ignore
             username="username",
             credential="password",
         ),
