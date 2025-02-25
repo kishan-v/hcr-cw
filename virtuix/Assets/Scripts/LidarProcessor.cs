@@ -33,14 +33,41 @@ public class LidarProcessor : MonoBehaviour
         return trueIndices;
     }
 
-    void Start()
+    // TODO: DELTE THIS
+    //void Start()
+    //{
+    //    Debug.Log("processing example data");
+
+    //    Stopwatch stopwatch = new Stopwatch();
+    //    stopwatch.Start();
+
+    //    List<Vector3> positions = decompressData(ref test_json);
+    //    DrawBoxes3(positions);
+
+    //    stopwatch.Stop();
+
+
+
+    //    System.TimeSpan ts = stopwatch.Elapsed;
+    //    string elapsedTime = string.Format("{0:00}:{1:00}:{2:00}.{3:000}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds);
+    //    Debug.Log("Function Execution Time: " + elapsedTime);
+    //    Debug.Log("Successfully deserialised the json");
+
+
+
+    //    // Display the elapsed time
+    //    Debug.Log("drawn");
+    //}
+
+    public void ProcessLidarData(string lidarJson)
     {
+
         Debug.Log("processing example data");
 
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
 
-        List<Vector3> positions = decompressData(ref test_json);
+        List<Vector3> positions = decompressData(ref lidarJson);
         DrawBoxes3(positions);
 
         stopwatch.Stop();
@@ -56,6 +83,7 @@ public class LidarProcessor : MonoBehaviour
 
         // Display the elapsed time
         Debug.Log("drawn");
+
     }
 
     // decompress and produce 3d points from json
