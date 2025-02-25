@@ -2,6 +2,7 @@ using UnityEngine;
 using System;
 using WebSocketSharp;
 using Newtonsoft.Json;
+using System.Collections.Concurrent;
 
 public class TeleopOmniCommunication : MonoBehaviour
 {
@@ -16,6 +17,13 @@ public class TeleopOmniCommunication : MonoBehaviour
     // A threshold below which we treat movement as zero (to filter out noise).
     public float movementThreshold = 0.05f;
 
+    [SerializeField]
+    private LidarProcessor lidarProcessor;
+
+    // concurrent queue to store messages
+    private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
+
+
     void Start()
     {
         ConnectWebSocket();
@@ -25,6 +33,11 @@ public class TeleopOmniCommunication : MonoBehaviour
         if (omniMovement == null)
         {
             Debug.LogError("OmniMovementComponent not found!");
+        }
+
+        if (lidarProcessor == null)
+        {
+            Debug.LogError("LidarProcessor not found!");
         }
     }
 
@@ -40,6 +53,14 @@ public class TeleopOmniCommunication : MonoBehaviour
         ws.OnMessage += (sender, e) =>
         {
             Debug.Log("Received reply: " + e.Data);
+            //var messageObj = JsonConvert.DeserializeObject<dynamic>(e.Data);
+
+            //if (messageObj != null && messageObj.world_dims != null)
+            //{
+            //    Debug.Log("Enqueuing LiDAR message.");
+            //    lidarDataQueue.Enqueue(e.Data);
+            //}
+            lidarDataQueue.Enqueue(e.Data);
         };
 
         ws.OnError += (sender, e) =>
@@ -69,6 +90,18 @@ public class TeleopOmniCommunication : MonoBehaviour
 
     void Update()
     {
+        while (lidarDataQueue.TryDequeue(out string lidarString))
+        {
+            if (lidarProcessor != null)
+            {
+                lidarProcessor.ProcessLidarData(lidarString);
+            }
+            else
+            {
+                Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
+            }
+        }
+
         if (ws == null || !ws.IsAlive)
             return;
 
