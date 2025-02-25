@@ -10,7 +10,7 @@ public class SRTReceiver : MonoBehaviour
     public string ffmpegPath = "ffmpeg"; // Ensure ffmpeg is in your PATH or provide full path.
     public string serverIP = "130.162.176.219"; // Replace with your Theta’s IP
     public int serverPort = 5001;            // Replace with your stream’s port
-    public int latency = 50000;  // 50 ms                 // Adjust latency if needed
+    public int latency = 50;  // 50 ms                 // Adjust latency if needed
 
     [Header("Video Stream Settings")]
     public int width = 1280;
