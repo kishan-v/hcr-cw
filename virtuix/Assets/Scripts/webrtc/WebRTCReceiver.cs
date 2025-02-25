@@ -59,11 +59,11 @@ public class WebRTCReceiver : MonoBehaviour
         {
             iceServers = new[] {
                 new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } },
-                new RTCIceServer { 
-                    urls = new string[] { "turn:130.162.176.219:3478?transport=udp", "turn:130.162.176.219:3478?transport=tcp" },
-                    username = "username",
-                    credential = "password"
-                },
+                //new RTCIceServer { 
+                //    urls = new string[] { "turn:130.162.176.219:3478?transport=udp", "turn:130.162.176.219:3478?transport=tcp" },
+                //    username = "username",
+                //    credential = "password"
+                //},
             },
             // iceTransportPolicy = RTCIceTransportPolicy.Relay  // Force TURN relay
         };
