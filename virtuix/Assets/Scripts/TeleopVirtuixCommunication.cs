@@ -82,8 +82,7 @@ public class TeleopOmniCommunication : MonoBehaviour
             // Retrieve the calculated movement vectors.
             Vector3 forwardMovement = omniMovement.GetForwardMovement();
             Vector3 strafeMovement = omniMovement.GetStrafeMovement();
-	    float rotation = omniMovement.currentOmniYaw;
-            Debug.Log(rotation);
+	        float rotation = omniMovement.currentOmniYaw;
 
             // For this example, we map:
             // • Forward/backward speed from the forwardMovement's z value.
@@ -116,7 +115,7 @@ public class TeleopOmniCommunication : MonoBehaviour
             try
             {
                 ws.Send(message);
-                Debug.Log("Sent command: " + message);
+                Debug.Log("Sent command: " + message + "Rotation: " + rotation);
             }
             catch (Exception ex)
             {
