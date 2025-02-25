@@ -5,6 +5,7 @@ using System.Diagnostics;
 
 using Unity.Mathematics;
 using Unity.Collections;
+using System.Text.Json;
 
 using Debug = UnityEngine.Debug;
 
@@ -34,28 +35,36 @@ public class LidarProcessor : MonoBehaviour
 
     void Start()
     {
-        string jsonString = @"
-        {
-            ""centroids"": [
-                [1.0, 2.0, 3.0],
-                [4.0, 5.0, 6.0],
-                [7.0, 8.0, 9.0],
-                [0.0, 0.0, 0.0]
-            ]
-        }"; // Your JSON string here
-
         Debug.Log("processing example data");
-
-        /* ProcessLidarData(jsonString); */
 
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
 
-        Dictionary<string, object> d = JsonConvert.DeserializeObject<Dictionary<string, object>>(test_json);
-        List<bool> boolList = JsonConvert.DeserializeObject<List<bool>>(JsonConvert.SerializeObject(d["box_vals"])); // Extract boolean list
+        List<Vector3> positions = decompressData(ref test_json);
+        DrawBoxes3(positions);
+
+        stopwatch.Stop();
+
+
+
+        System.TimeSpan ts = stopwatch.Elapsed;
+        string elapsedTime = string.Format("{0:00}:{1:00}:{2:00}.{3:000}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds);
+        Debug.Log("Function Execution Time: " + elapsedTime);
+        Debug.Log("Successfully deserialised the json");
+
+
+
+        // Display the elapsed time
+        Debug.Log("drawn");
+    }
+
+    // decompress and produce 3d points from json
+    private List<Vector3> decompressData(ref string json) {
+        // extract data
+        List<bool> boolList = ExtractBoolArray(ref json);
         List<int> trueIndices = FindTrueIndices(boolList.ToArray()); // Convert list to array
 
-        // No move semantics in C# !! Very expensive copy
+        // No move semantics in C# !! Very expensive copy into a native array
         NativeArray<float4> indices = new NativeArray<float4>(trueIndices.Count, Allocator.Temp);
 
         for (int i = 0; i < trueIndices.Count; i++)
@@ -63,12 +72,12 @@ public class LidarProcessor : MonoBehaviour
             indices[i] = (float)trueIndices[i]; // Explicit cast to float
         }
 
+        // set up constants
         const float x_area = (float) (4.0 * (1.0 / 0.1));
         const float y_area = (float) ((float) 4.0 * (1.0 / 0.1)) * x_area;
         const float step_size = (float) 0.1;
 
         // calculate_z
-
         NativeArray<float4> z = new NativeArray<float4>(indices.Length, Allocator.Temp);
         NativeArray<float4>.Copy(indices, z);
 
@@ -96,34 +105,38 @@ public class LidarProcessor : MonoBehaviour
             x[i] = math.floor((x[i] % y_area) % x_area) * step_size - ((float) 2.0);
         }
 
-        List<Vector3> positions = ConvertToVector3List(x, z, y); // remember to convert to the unity coord frame
-        DrawBoxes3(positions);
+        return ConvertToVector3List(ref x, ref z, ref y); // remember to convert to the unity coord frame
+    }
 
-        /* List<int> trueIndices = FindTrueIndices(d.box_vals); */
-        stopwatch.Stop();
+    private List<bool> ExtractBoolArray(ref string json)
+    {
+        var boolList = new List<bool>();
 
-        Debug.Log("pos1: " + positions);
+        using (JsonDocument doc = JsonDocument.Parse(json))
+        {
+            if(doc.RootElement.TryGetProperty("box_vals", out JsonElement element) && element.ValueKind == JsonValueKind.Array) {
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    boolList.Add(item.GetBoolean());
+                }
+            }
+        }
 
-        // Display the elapsed time
-        System.TimeSpan ts = stopwatch.Elapsed;
-        string elapsedTime = string.Format("{0:00}:{1:00}:{2:00}.{3:000}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds);
-        Debug.Log("Function Execution Time: " + elapsedTime);
-        Debug.Log("Successfully deserialised the json");
-
-        Debug.Log("drawn");
+        return boolList;
     }
 
     private void DrawBoxes3(List<Vector3> positions)
     {
-    ClearBoxes();
-    foreach (Vector3 position in positions)
-    {
-        GameObject box = Instantiate(boxPrefab, position, Quaternion.identity);
-        boxes.Add(box);
-    }
+        ClearBoxes();
+
+        foreach (Vector3 position in positions)
+        {
+            GameObject box = Instantiate(boxPrefab, position, Quaternion.identity);
+            boxes.Add(box);
+        }
     }
 
-    List<Vector3> ConvertToVector3List(NativeArray<float4> xVectors, NativeArray<float4> yVectors, NativeArray<float4> zVectors)
+    List<Vector3> ConvertToVector3List(ref NativeArray<float4> xVectors, ref NativeArray<float4> yVectors, ref NativeArray<float4> zVectors)
     {
         List<Vector3> positions = new List<Vector3>();
         for (int i = 0; i < xVectors.Length; i++)
@@ -146,33 +159,6 @@ public class LidarProcessor : MonoBehaviour
         }
     }
 
-    private void ProcessLidarData(string jsonString)
-    {
-        Debug.Log($"Processing JSON: {jsonString}");
-        try
-        {
-            CentroidData data = JsonConvert.DeserializeObject<CentroidData>(jsonString);
-            DrawBoxes(data.centroids);
-        }
-        catch (JsonException e)
-        {
-            Debug.LogError($"JSON parsing error: {e.Message}");
-        }
-    }
-
-    private void DrawBoxes(float[][] centroids)
-    {
-        ClearBoxes();
-        foreach (float[] centroid in centroids)
-        {
-            if (centroid.Length == 3)
-            {
-                Vector3 position = new Vector3(centroid[0], centroid[1], centroid[2]);
-                GameObject box = Instantiate(boxPrefab, position, Quaternion.identity);
-                boxes.Add(box);
-            }
-        }
-    }
 
     private void ClearBoxes()
     {
