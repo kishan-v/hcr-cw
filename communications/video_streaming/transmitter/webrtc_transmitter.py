@@ -149,6 +149,7 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
     try:
         # USE WEBCAM OR RICOH_THETA (using GStreamer backend on Linux)
         if VIDEO_SOURCE == "webcam":
+            input("Are you sure you want to stream from the webcam and not RICOH Theta? Press Enter to continue...")
             capture = cv2.VideoCapture(index=0)
             print("Opening webcam")
         elif VIDEO_SOURCE == "theta":
