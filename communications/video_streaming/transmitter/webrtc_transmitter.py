@@ -165,7 +165,7 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
             capture = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
             print(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
             if not capture.isOpened():
-                raise IOError('Cannot open RICOH THETA with the given pipeline.')
+                raise IOError('Cannot open RICOH THETA with the given pipeline. Do you have GStreamer backend installed for opencv-python?')
             else:
                 raise ValueError("Invalid video source. Must be 'webcam' or 'theta'")
 
