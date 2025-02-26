@@ -162,10 +162,12 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
             print("Opening webcam")
         elif VIDEO_SOURCE == "theta":
             # gst_pipeline = ("thetauvcsrc ! decodebin ! autovideoconvert ! video/x-raw,format=BGRx "
-            # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
+                            # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
             # gst_pipeline = ("thetauvcsrc ! queue ! h264parse ! nvdec ! gldownload ! queue "
-            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
-            # Use the Theta capture pipeline with mode=4K for WebRTC streaming
+                            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
+            # gst_pipeline = ("thetauvcsrc mode=4K ! queue ! h264parse ! nvv4l2decoder ! gldownload ! queue "
+                            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink sync=false drop=true")
+            # The following pipeline has been verified, but initial tests produced ~5s latency :(
             gst_pipeline = (
                 "thetauvcsrc mode=4K ! decodebin ! autovideoconvert ! "
                 "video/x-raw,format=BGRx ! queue ! videoconvert ! "
@@ -194,13 +196,13 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
 
         print("Sent SDP offer to signaling server")
 
-        # Wait for the remote answer from Unity
+        # Wait for the remote answer from receiver
         remote_msg = await signaling.receive()
         if (
             isinstance(remote_msg, RTCSessionDescription)
             and remote_msg.type == "answer"
         ):
-            print("Received SDP answer from Unity")
+            print("Received SDP answer from receiver")
             await pc.setRemoteDescription(remote_msg)
         else:
             print("Did not receive valid SDP answer")
@@ -213,7 +215,7 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
                     logging.debug(f"Received ICE candidate: {msg}")
                     # Directly add the candidate dictionary
                     candidate = RTCIceCandidate(
-                        # TODO: decompose Unity Candidate format into RTCIceCandidate
+                        # TODO: decompose receiver Candidate format into RTCIceCandidate
                         component=msg["component"],
                         foundation=msg["foundation"],
                         ip=msg["ip"],
