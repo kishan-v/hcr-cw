@@ -13,7 +13,7 @@ build-dog:
 	docker buildx build --platform=linux/arm64 -t unitree_go2 -f dockerfiles/Dockerfile.dog.sdk .
 
 build-lidar:
-	docker buildx build --platform=linux/arm64 -t lidar_processor -f dockerfiles/Dockerfile.dog.lidar  .
+	docker buildx build --platform=linux/arm64 -t lidar_processor -f dockerfiles/Dockerfile.dog.lidar_processor .
 
 _start_container_if_not_running:
 	@if ! docker ps -a | grep -w unitree_container; then $(MAKE) run; fi
