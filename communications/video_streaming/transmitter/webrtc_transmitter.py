@@ -91,8 +91,8 @@ class VideoCameraTrack(MediaStreamTrack):
         video_frame.pts = pts
         video_frame.time_base = time_base
 
-        video_frame.opaque = {}
-        video_frame.opaque["send_time"] = time.time()
+        # video_frame.opaque = {}
+        # video_frame.opaque["send_time"] = time.time()
 
         return video_frame
 
@@ -178,8 +178,8 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
                     "Cannot open RICOH THETA with the given pipeline. "
                     "Do you have GStreamer backend installed for opencv-python?"
                 )
-            else:
-                raise ValueError("Invalid video source. Must be 'webcam' or 'theta'")
+        else:
+            raise ValueError("Invalid video source. Must be 'webcam' or 'theta'")
 
         # Add local track
         local_video = VideoCameraTrack(
