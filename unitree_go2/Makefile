@@ -55,5 +55,8 @@ run-simulation: _start_container_if_not_running
 run-debug: _start_container_if_not_running
 	docker exec -it unitree_container bash
 
+run-interface: _start_container_if_not_running
+	docker exec -t unitree_container bash -c "source /root/ros2_ws/src/unitree_ros2/setup.sh && ros2 run dog_interface dog_interface"
+
 stop:
 	docker kill unitree_container

@@ -23,6 +23,11 @@ int main(int argc, char *argv[])
 
     sleep(2); // Wait for initialisation or this doesn't work
     
+    sport_req.StandUp(req);
+    req_puber->publish(req);
+
+    sleep(2);
+
     sport_req.BalanceStand(req);
     req_puber->publish(req);
     
