@@ -3,7 +3,7 @@ import time
 import logging
 
 
-def process_frame(frame: cv2.typing.MatLike) -> cv2.typing.MatLike:
+def process_frame(frame):
     """
     Perform computer vision/annotation on the frame.
     This function runs in a separate thread.
