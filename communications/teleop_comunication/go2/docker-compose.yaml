@@ -1,0 +1,23 @@
+version: '3'
+services:
+  rotation_controller:
+    build:
+      context: .
+      dockerfile: Dockerfile.rotation_controller
+    environment:
+      - ROS_DOMAIN_ID=0
+    networks:
+      - ros_network
+
+  dog_websocket_client:
+    build:
+      context: .
+      dockerfile: Dockerfile.dog_websocket_client
+    environment:
+      - ROS_DOMAIN_ID=0
+    networks:
+      - ros_network
+
+networks:
+  ros_network:
+    driver: bridge
