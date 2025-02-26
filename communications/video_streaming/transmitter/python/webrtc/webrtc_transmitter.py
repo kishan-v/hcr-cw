@@ -23,8 +23,9 @@ from computer_vision import process_frame
 
 WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
 TURN_SERVER_URI = "turn:130.162.176.219:3478"
-VIDEO_SOURCE = "webcam"  # "webcam" or "theta"
-# VIDEO_SOURCE = "theta"
+VIDEO_SOURCE = "theta"  # "webcam" or "theta"
+
+COMP_VIS_MODE = False  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
 CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a frame.
 
 
@@ -70,16 +71,17 @@ class VideoCameraTrack(MediaStreamTrack):
         if not ret:
             raise Exception("Failed to read frame from webcam")
 
-        current_time = time.time()
-        if current_time - self.last_cv_time >= self.cv_interval_secs:
-            self.last_cv_time = current_time
-            loop = asyncio.get_event_loop()
-            try:
-                # Offload processing to executor without blocking the main loop.
-                frame = await loop.run_in_executor(self.executor, process_frame, frame)
-            except Exception as e:
-                print(f"CV processing error: {e}")
-                # If processing fails, use the original frame.
+        if COMP_VIS_MODE:
+            current_time = time.time()
+            if current_time - self.last_cv_time >= self.cv_interval_secs:
+                self.last_cv_time = current_time
+                loop = asyncio.get_event_loop()
+                try:
+                    # Offload processing to executor without blocking the main loop.
+                    frame = await loop.run_in_executor(self.executor, process_frame, frame)
+                except Exception as e:
+                    print(f"CV processing error: {e}")
+                    # If processing fails, use the original frame.
 
         # # Display frame using imshow in a non-blocking way
         # cv2.imshow(self.window_name, frame)
@@ -177,8 +179,9 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
             print(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
             if not capture.isOpened():
                 raise IOError(
-                    "Cannot open RICOH THETA with the given pipeline. "
-                    "Do you have GStreamer backend installed for opencv-python?"
+                    "Cannot open RICOH THETA with the given pipeline.\n"
+                    "Do you have GStreamer backend installed for opencv-python?\n"
+                    "Have you tried re-installing libuvc-theta?"
                 )
         else:
             raise ValueError("Invalid video source. Must be 'webcam' or 'theta'")
