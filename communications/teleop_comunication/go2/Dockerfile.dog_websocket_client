@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y python3-pip && \
     pip3 install websockets
 
 # Copy the dog websocket client script into the container
-COPY dog_websocket_client.py /dog_websocket_client.py
+COPY go2_ws_nodev2.py /dog_websocket_client.py
 
 # Set the working directory (optional)
 WORKDIR /
