@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import math
 import rclpy
 from rclpy.node import Node
@@ -18,7 +16,7 @@ class RotationController(Node):
         self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
 
         # Subscriber for rotation commands (target rotation in radians)
-        self.angle_sub = self.create_subscription(Float64, '/eie4_rotate_angle', self.angle_callback, 10)
+        self.angle_sub = self.create_subscription(Float64, '/rotate_angle', self.angle_callback, 10)
 
         self.timer = self.create_timer(0.1, self.timer_callback)
 
@@ -29,6 +27,7 @@ class RotationController(Node):
         self.target_yaw = None
         self.rotation_active = False
         self.yaw_threshold = 0.05 
+        self.attempt = 0
 
         self.get_logger().info("Rotation Controller node started.")
 
@@ -64,13 +63,21 @@ class RotationController(Node):
             angular_speed = max(-max_speed, min(max_speed, angular_speed))
 
             twist = Twist()
-            if abs(error) > self.yaw_threshold:
+            if self.attempt > 100:
+                self.get_logger().info("Rotation failed. Stopping.")
+                twist.angular.z = 0.0
+                self.cmd_pub.publish(twist)
+                self.rotation_active = False
+                self.attempt = 0
+            elif abs(error) > self.yaw_threshold:
+                self.attempt += 1
                 twist.angular.z = angular_speed
                 self.cmd_pub.publish(twist)
             else:
                 twist.angular.z = 0.0
                 self.cmd_pub.publish(twist)
                 self.rotation_active = False
+                self.attempt = 0
                 self.get_logger().info("Rotation complete. Stopping.")
 
 def main(args=None):
