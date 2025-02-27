@@ -52,7 +52,7 @@ public class TeleopOmniCommunication : MonoBehaviour
 
         ws.OnMessage += (sender, e) =>
         {
-            Debug.Log("Received reply: " + e.Data);
+            //Debug.Log("Received reply: " + e.Data);
             //var messageObj = JsonConvert.DeserializeObject<dynamic>(e.Data);
 
             //if (messageObj != null && messageObj.world_dims != null)
