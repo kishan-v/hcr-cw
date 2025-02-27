@@ -19,9 +19,13 @@ public class TeleopJoystickCommunication : MonoBehaviour
     // Deadzone threshold
     public float deadzone = 0.1f;
 
+    // Relative turning with absolute interface
+    private double prevAngle;
+
     void Start()
     {
         ConnectWebSocket();
+        prevAngle = 0;
     }
 
     void ConnectWebSocket()
@@ -69,8 +73,8 @@ public class TeleopJoystickCommunication : MonoBehaviour
         {
             return;
         }
-        
-	// When joystick clicked 
+
+        // When joystick clicked 
         if (touch.GetState(handType))
         {
             // Get the joystick's trackpad touch position.
@@ -81,9 +85,18 @@ public class TeleopJoystickCommunication : MonoBehaviour
                 axis = Vector2.zero;
             }
 
-            // Map joystick Y to forward/backward and X to turning.
-            double linear_x = axis.y;    // Forward/backward command
-            double angular_z = axis.x;   // Turning command
+            // Get joystick inputs
+            double x = axis.x;
+            double y = axis.y;
+
+            // Convert to forward/backward and absolute angle
+            double linear_x = Math.Sqrt(x * x + y * y); // Forward/backward command
+            double relativeAngle = Math.Atan(x / y);
+
+            // Relative angle -> absolute angle
+            double absoluteAngle = relativeAngle + prevAngle;
+            prevAngle = absoluteAngle;
+
 
             var command = new
             {
@@ -92,7 +105,7 @@ public class TeleopJoystickCommunication : MonoBehaviour
                 msg = new
                 {
                     linear = new { x = linear_x, y = 0.0, z = 0.0 },
-                    angular = new { x = 0.0, y = 0.0, z = angular_z },
+                    angular = new { x = 0.0, y = 0.0, z = absoluteAngle },
                     timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 }
             };

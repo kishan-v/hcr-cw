@@ -174,11 +174,11 @@ PrefabInstance:
     - target: {fileID: 2348914, guid: 4d293c8e162f3874b982baadd71153d2, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 1221992624}
+      objectReference: {fileID: 905632834}
     - target: {fileID: 3380982, guid: 4d293c8e162f3874b982baadd71153d2, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 1529936472}
+      objectReference: {fileID: 2041091260}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -186,6 +186,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 124034, guid: 4d293c8e162f3874b982baadd71153d2, type: 3}
       insertIndex: -1
       addedObject: {fileID: 628748525}
+    - targetCorrespondingSourceObject: {fileID: 159396, guid: 4d293c8e162f3874b982baadd71153d2, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 628748527}
   m_SourcePrefab: {fileID: 100100000, guid: 4d293c8e162f3874b982baadd71153d2, type: 3}
 --- !u!1 &628748524 stripped
 GameObject:
@@ -205,6 +208,30 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   handType: 1
+  joystick:
+    actionPath: /actions/default/in/Joystick
+    needsReinit: 0
+  touch:
+    actionPath: /actions/default/in/JoystickTouch
+    needsReinit: 0
+--- !u!1 &628748526 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 159396, guid: 4d293c8e162f3874b982baadd71153d2, type: 3}
+  m_PrefabInstance: {fileID: 628748523}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &628748527
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 628748526}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 245ef398c9c72c14b81412ead8425171, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  handType: 2
   joystick:
     actionPath: /actions/default/in/Joystick
     needsReinit: 0
@@ -288,38 +315,7 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 1171841964}
   m_SourcePrefab: {fileID: 100100000, guid: 0d21d2138f7d66446babb1bfa84b5975, type: 3}
---- !u!1 &1171841963 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 2532970135202027091, guid: 0d21d2138f7d66446babb1bfa84b5975, type: 3}
-  m_PrefabInstance: {fileID: 740027165}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1171841964
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1171841963}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6e7cdbc488e64445c846843e0cffe74c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  signallingServerUrl: ws://130.162.176.219:8765
---- !u!114 &1171841965
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1171841963}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f63e36f07a0a9414890f5f7bdbf36a41, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  webrtcReceiver: {fileID: 1171841964}
---- !u!21 &1221992624
+--- !u!21 &905632834
 Material:
   serializedVersion: 8
   m_ObjectHideFlags: 0
@@ -360,7 +356,38 @@ Material:
     - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
---- !u!43 &1529936472
+--- !u!1 &1171841963 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2532970135202027091, guid: 0d21d2138f7d66446babb1bfa84b5975, type: 3}
+  m_PrefabInstance: {fileID: 740027165}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1171841964
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1171841963}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e7cdbc488e64445c846843e0cffe74c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  signallingServerUrl: ws://130.162.176.219:8765
+--- !u!114 &1171841965
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1171841963}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f63e36f07a0a9414890f5f7bdbf36a41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  webrtcReceiver: {fileID: 1171841964}
+--- !u!43 &2041091260
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
