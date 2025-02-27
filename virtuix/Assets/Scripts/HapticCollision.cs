@@ -14,10 +14,28 @@ public class HapticCollision : MonoBehaviour
         }
     }
 
+    private void OnCollisionStay(Collision collision)
+    {
+        if (collision.gameObject.CompareTag("HapticCube")) // Ensure cube has this tag
+        {
+            TriggerHapticFeedback(1.0f, 0.1f, 80);
+        }
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if (other.gameObject.CompareTag("HapticCube")) // Ensure cube has this tag
         {        
+            //Debug.Log("Trigger " + gameObject.name + " with " + other.gameObject.name);
+
+            TriggerHapticFeedback(1.0f, 0.1f, 80);
+        }
+    }
+
+    private void OnTriggerStay(Collider other)
+    {
+        if (other.gameObject.CompareTag("HapticCube")) // Ensure cube has this tag
+        {
             //Debug.Log("Trigger " + gameObject.name + " with " + other.gameObject.name);
 
             TriggerHapticFeedback(1.0f, 0.1f, 80);
