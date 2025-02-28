@@ -61,7 +61,7 @@ class VideoCameraTrack(MediaStreamTrack):
         # self.window_name = "Local Preview"
         # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
 
-    async def recv(self):
+    async def recv(self) -> av.VideoFrame:
         pts, time_base = await self.next_timestamp()
 
         # Sleep to match frame rate
@@ -98,7 +98,7 @@ class VideoCameraTrack(MediaStreamTrack):
 
         return video_frame
 
-    async def next_timestamp(self):
+    async def next_timestamp(self) -> tuple[int, fractions.Fraction]:
         """Generate timestamps for frames"""
         framerate = cv2.CAP_PROP_FPS
         time_base = fractions.Fraction(1, framerate)
@@ -110,11 +110,11 @@ class VideoCameraTrack(MediaStreamTrack):
         cv2.destroyWindow(self.window_name)
 
 
-async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
+async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
     await signaling.connect()
 
     @pc.on("iceconnectionstatechange")
-    async def on_iceconnectionstatechange():
+    async def on_iceconnectionstatechange() -> None:
         logging.info(f"ICE connection state changed to: {pc.iceConnectionState}")
         if pc.iceConnectionState == "failed":
             logging.error("ICE connection failed")
@@ -126,11 +126,11 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
             logging.info("ICE connection established successfully")
 
     @pc.on("signalingstatechange")
-    async def on_signalingstatechange():
+    async def on_signalingstatechange() -> None:
         print("Signaling state is", pc.signalingState)
 
     @pc.on("icecandidate")
-    async def on_icecandidate(candidate: RTCIceCandidate):
+    async def on_icecandidate(candidate: RTCIceCandidate) -> None:
         # Called when this client gathers a new ICE candidate (from STUN/TURN)
         if candidate is not None:
             logging.debug(f"New transmitter ICE candidate: {candidate}")
@@ -169,13 +169,13 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling):
                             # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
             # gst_pipeline = ("thetauvcsrc mode=4K ! queue ! h264parse ! nvv4l2decoder ! gldownload ! queue "
                             # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink sync=false drop=true")
-            # The following pipeline has been verified, but initial tests produced ~5s latency :(
+            # The following pipeline has been verified, but initial tests produced ~1s latency in 2K, ~5s in 4K
             gst_pipeline = (
-                "thetauvcsrc mode=4K ! decodebin ! autovideoconvert ! "
+                "thetauvcsrc mode=2K ! decodebin ! autovideoconvert ! "
                 "video/x-raw,format=BGRx ! queue ! videoconvert ! "
                 "video/x-raw,format=BGR ! queue ! appsink"
             )
-            capture = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
+            capture = cv2.VideoCapture(filename=gst_pipeline, apiPreference=cv2.CAP_GSTREAMER)
             print(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
             if not capture.isOpened():
                 raise IOError(
