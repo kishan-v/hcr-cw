@@ -73,8 +73,8 @@ public class TeleopJoystickCommunication : MonoBehaviour
         {
             return;
         }
-        
-	// When joystick clicked 
+
+        // When joystick clicked 
         if (touch.GetState(handType))
         {
             // Get the joystick's trackpad touch position.
