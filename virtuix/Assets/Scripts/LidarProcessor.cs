@@ -32,8 +32,6 @@ public class LidarProcessor : MonoBehaviour
     public void ProcessLidarData(string lidarJson)
     {
 
-        Debug.Log("processing example data");
-
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
 
@@ -48,11 +46,6 @@ public class LidarProcessor : MonoBehaviour
         string elapsedTime = string.Format("{0:00}:{1:00}:{2:00}.{3:000}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds);
         Debug.Log("Function Execution Time: " + elapsedTime);
         Debug.Log("Successfully deserialised the json");
-
-
-
-        // Display the elapsed time
-        Debug.Log("drawn");
 
     }
 
@@ -94,7 +87,7 @@ public class LidarProcessor : MonoBehaviour
     }
 
     [BurstCompile(CompileSynchronously = true)]
-    static private struct Decompress: IJob 
+    private struct Decompress: IJob 
     {
         public NativeArray<float4> x;
         public NativeArray<float4> y;
@@ -169,7 +162,7 @@ public class LidarProcessor : MonoBehaviour
         }
     }
 
-    List<Vector3> ConvertToVector3List(ref NativeArray<float4> xVectors, ref NativeArray<float4> yVectors, ref NativeArray<float4> zVectors)
+    static private List<Vector3> ConvertToVector3List(ref NativeArray<float4> xVectors, ref NativeArray<float4> yVectors, ref NativeArray<float4> zVectors)
     {
         List<Vector3> positions = new List<Vector3>();
         for (int i = 0; i < xVectors.Length; i++)
