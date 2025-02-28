@@ -174,3 +174,49 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Ignore system-specific and temporary files
+.DS_Store
+Thumbs.db
+
+# Ignore user-specific Unity settings
+virtuix/Library/
+virtuix/Logs/
+virtuix/Temp/
+virtuix/Obj/
+virtuix/Build/
+virtuix/Builds/
+virtuix/UserSettings/
+
+# Ignore generated files
+virtuix/MemoryCaptures/
+*.pidb
+*.suo
+*.user
+*.userprefs
+*.unityproj
+*.csproj
+*.tmp
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Ignore auto-generated files from Visual Studio and Rider
+.vs/
+.idea/
+*.sln*
+*.csproj
+
+# Ignore Cache and Temporary Files
+virtuix/Assets/Plugins/Editor/JetBrains*
+virtuix/Assets/StreamingAssets/SteamVR/*
+virtuix/Assets/SteamVR_Input/*
+virtuix/Assets/Oculus/
+virtuix/Assets/OculusPlugins/
+virtuix/Assets/ThirdPartyPlugins/
+
+# Ignore Unity’s Collaborate metadata
+virtuix/.Collab/
+
