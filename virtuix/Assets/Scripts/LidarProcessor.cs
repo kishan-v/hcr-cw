@@ -6,6 +6,8 @@ using System.Diagnostics;
 using Unity.Mathematics;
 using Unity.Collections;
 using System.Text.Json;
+using Unity.Burst;
+using Unity.Jobs;
 
 using Debug = UnityEngine.Debug;
 
@@ -14,13 +16,7 @@ public class LidarProcessor : MonoBehaviour
     public GameObject boxPrefab;
     private List<GameObject> boxes = new List<GameObject>();
 
-    [System.Serializable]
-    public class CentroidData
-    {
-        public float[][] centroids; // Now a 2D array: [[x1, y1, z1], [x2, y2, z2], ...]
-    }
-
-    public List<int> FindTrueIndices(bool[] boolArray)
+    static private List<int> FindTrueIndices(bool[] boolArray)
     {
         List<int> trueIndices = new List<int>();
         for (int i = 0; i < boolArray.Length; i++)
@@ -33,14 +29,13 @@ public class LidarProcessor : MonoBehaviour
         return trueIndices;
     }
 
-    void Start()
+    public void ProcessLidarData(string lidarJson)
     {
-        Debug.Log("processing example data");
 
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
 
-        List<Vector3> positions = decompressData(ref test_json);
+        List<Vector3> positions = decompressData(ref lidarJson);
         DrawBoxes3(positions);
 
         stopwatch.Stop();
@@ -52,63 +47,94 @@ public class LidarProcessor : MonoBehaviour
         Debug.Log("Function Execution Time: " + elapsedTime);
         Debug.Log("Successfully deserialised the json");
 
-
-
-        // Display the elapsed time
-        Debug.Log("drawn");
     }
 
-    // decompress and produce 3d points from json
-    private List<Vector3> decompressData(ref string json) {
+
+    static private List<Vector3> decompressData(ref string json) {
         // extract data
         List<bool> boolList = ExtractBoolArray(ref json);
         List<int> trueIndices = FindTrueIndices(boolList.ToArray()); // Convert list to array
 
         // No move semantics in C# !! Very expensive copy into a native array
-        NativeArray<float4> indices = new NativeArray<float4>(trueIndices.Count, Allocator.Temp);
-
+        NativeArray<float4> indices = new NativeArray<float4>(trueIndices.Count, Allocator.Persistent);
         for (int i = 0; i < trueIndices.Count; i++)
         {
             indices[i] = (float)trueIndices[i]; // Explicit cast to float
         }
 
-        // set up constants
-        const float x_area = (float) (4.0 * (1.0 / 0.1));
-        const float y_area = (float) ((float) 4.0 * (1.0 / 0.1)) * x_area;
-        const float step_size = (float) 0.1;
+        NativeArray<float4> z = new NativeArray<float4>(indices.Length, Allocator.Persistent);
+        NativeArray<float4> y = new NativeArray<float4>(indices.Length, Allocator.Persistent);
+        NativeArray<float4> x = new NativeArray<float4>(indices.Length, Allocator.Persistent);
+ 
+        var job = new Decompress{
+            indices=indices,
+            x=x,
+            y=y, 
+            z=z
+        };
 
-        // calculate_z
-        NativeArray<float4> z = new NativeArray<float4>(indices.Length, Allocator.Temp);
-        NativeArray<float4>.Copy(indices, z);
+        job.Schedule().Complete();
 
-        for(int i = 0; i < z.Length; i++)
-        {
-            z[i] = math.floor(z[i] / y_area) * step_size;
-        }
+        List<Vector3> coord = ConvertToVector3List(ref x, ref z, ref y); // remember to convert to the unity coord frame 
 
+        // dispose to avoid mem leak
+        x.Dispose();
+        y.Dispose();
+        z.Dispose();
+        indices.Dispose();
 
-        // calculate y
-        NativeArray<float4> y = new NativeArray<float4>(indices.Length, Allocator.Temp);
-        NativeArray<float4>.Copy(indices, y);
-
-        for(int i = 0; i < y.Length; i++)
-        {
-            y[i] = math.floor((y[i] % y_area) / x_area) * step_size - ((float) 2.0);
-        }
-
-        // calculate x
-        NativeArray<float4> x = new NativeArray<float4>(indices.Length, Allocator.Temp);
-        NativeArray<float4>.Copy(indices, x);
-
-        for(int i = 0; i < x.Length; i++)
-        {
-            x[i] = math.floor((x[i] % y_area) % x_area) * step_size - ((float) 2.0);
-        }
-
-        return ConvertToVector3List(ref x, ref z, ref y); // remember to convert to the unity coord frame
+        return coord;
     }
 
-    private List<bool> ExtractBoolArray(ref string json)
+    [BurstCompile(CompileSynchronously = true)]
+    private struct Decompress: IJob 
+    {
+        public NativeArray<float4> x;
+        public NativeArray<float4> y;
+        public NativeArray<float4> z;
+
+
+        [ReadOnly]
+        public NativeArray<float4> indices;
+
+        public void Execute()
+        {
+
+            // set up constants
+            const float x_area = (float) (4.0 * (1.0 / 0.1));
+            const float y_area = (float) ((float) 4.0 * (1.0 / 0.1)) * x_area;
+            const float step_size = (float) 0.1;
+
+            // calculate_z
+            NativeArray<float4>.Copy(indices, z);
+
+            for(int i = 0; i < z.Length; i++)
+            {
+                z[i] = math.floor(z[i] / y_area) * step_size;
+            }
+
+
+            // calculate y
+            NativeArray<float4>.Copy(indices, y);
+
+            for(int i = 0; i < y.Length; i++)
+            {
+                y[i] = math.floor((y[i] % y_area) / x_area) * step_size - ((float) 2.0);
+            }
+
+            // calculate x
+            NativeArray<float4>.Copy(indices, x);
+
+            for(int i = 0; i < x.Length; i++)
+            {
+                x[i] = math.floor((x[i] % y_area) % x_area) * step_size - ((float) 2.0);
+            }
+
+        }
+    }
+
+
+    static private List<bool> ExtractBoolArray(ref string json)
     {
         var boolList = new List<bool>();
 
@@ -136,7 +162,7 @@ public class LidarProcessor : MonoBehaviour
         }
     }
 
-    List<Vector3> ConvertToVector3List(ref NativeArray<float4> xVectors, ref NativeArray<float4> yVectors, ref NativeArray<float4> zVectors)
+    static private List<Vector3> ConvertToVector3List(ref NativeArray<float4> xVectors, ref NativeArray<float4> yVectors, ref NativeArray<float4> zVectors)
     {
         List<Vector3> positions = new List<Vector3>();
         for (int i = 0; i < xVectors.Length; i++)
