@@ -17,6 +17,13 @@ public class TeleopOmniCommunication : MonoBehaviour
 
     // A threshold below which we treat movement as zero (to filter out noise).
     public float movementThreshold = 0.05f;
+    public float movementMultiplier = 10;
+    private int noStepCount = 0;
+    public int noStepThreshold = 3;
+
+    private float previousRotation = 0;
+    public float rotationThreshold = 0.2f;
+    private bool rotateFlag = true;
 
     [SerializeField]
     private LidarProcessor lidarProcessor;
@@ -118,44 +125,63 @@ public class TeleopOmniCommunication : MonoBehaviour
             float degreesRotation = omniMovement.currentOmniYaw;
             float radiansRotation = (float)(degreesRotation * (Math.PI / 180.0));
             radiansRotation = (float)Math.IEEERemainder(radiansRotation, 2 * Math.PI);
-            Debug.Log("Current Rotation: " + radiansRotation);
+            //Debug.Log("Current Rotation: " + radiansRotation);
 
-            // For this example, we map:
-            // • Forward/backward speed from the forwardMovement's z value.
-            // • Turning (angular) speed from the strafeMovement's x value.
-            double linearCommand = forwardMovement.z;
+            double linearCommand = forwardMovement.z * movementMultiplier;
+            if (linearCommand < movementThreshold)
+            {
+                noStepCount += 1;
+                linearCommand = 0;
+            }
+            else
+            {
+                noStepCount = 0;
+            }
 
+            if (Math.Abs((float)radiansRotation - previousRotation) > rotationThreshold)
+            {
+                rotateFlag = true;
+                previousRotation = radiansRotation;
+
+            }
+            else
+            {
+                rotateFlag = false;
+                radiansRotation = previousRotation;
+            }
 
             // Apply a deadzone so we only send meaningful commands.
-            if (Mathf.Abs((float)linearCommand) < movementThreshold)
-                linearCommand = 0.0;
-            if (Mathf.Abs((float)angularCommand) < movementThreshold)
-                angularCommand = 0.0;
+            //if (Mathf.Abs((float)linearCommand) < movementThreshold) { 
+            //    linearCommand = 0.0;
+            //}
 
-            // Build the command payload.
-            var command = new
+            if (rotateFlag || (noStepCount < noStepThreshold))
             {
-                op = "command",
-                topic = "teleop/cmd_vel",
-                msg = new
+                // Build the command payload.
+                var command = new
                 {
-                    // In this protocol, we assume the linear motion is along the x-axis.
-                    // Adjust the mapping as needed (e.g. swap axes) to suit your application.
-                    linear = new { x = linearCommand, y = 0.0, z = 0.0 },
-                    angular = new { x = 0.0, y = 0.0, z = radiansRotation },
-                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-                }
-            };
+                    op = "command",
+                    topic = "teleop/cmd_vel",
+                    msg = new
+                    {
+                        // In this protocol, we assume the linear motion is along the x-axis.
+                        // Adjust the mapping as needed (e.g. swap axes) to suit your application.
+                        linear = new { x = linearCommand, y = 0.0, z = 0.0 },
+                        angular = new { x = 0.0, y = 0.0, z = -radiansRotation },
+                        timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                    }
+                };
 
-            string message = JsonConvert.SerializeObject(command);
-            try
-            {
-                ws.Send(message);
-                Debug.Log("Sent command: " + message);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError("Error sending message: " + ex.Message);
+                string message = JsonConvert.SerializeObject(command);
+                try
+                {
+                    ws.Send(message);
+                    Debug.Log("Sent command: " + message);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("Error sending message: " + ex.Message);
+                }
             }
         }
 

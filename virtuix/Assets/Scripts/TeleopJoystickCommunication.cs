@@ -91,7 +91,23 @@ public class TeleopJoystickCommunication : MonoBehaviour
 
             // Convert to forward/backward and absolute angle
             double linear_x = Math.Sqrt(x * x + y * y); // Forward/backward command
-            double relativeAngle = Math.Atan(x / y);
+
+            double relativeAngle;
+            if (y != 0)
+            {
+                relativeAngle = Math.Atan(x / y);
+            }
+            else
+            {
+                if (x>0)
+                {
+                    relativeAngle = Math.PI / 2;
+                }
+                else
+                {
+                    relativeAngle = -Math.PI / 2;
+                }
+            }
 
             // Relative angle -> absolute angle
             double absoluteAngle = relativeAngle + prevAngle;
