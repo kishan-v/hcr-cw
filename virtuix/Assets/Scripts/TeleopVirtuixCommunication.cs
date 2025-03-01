@@ -99,9 +99,9 @@ public class TeleopOmniCommunication : MonoBehaviour
     float degToRad(float degrees)
     {
         // Convert degrees to radians
-        float radians = (float)(degrees * (Math.PI / 180.0));
+        double radians = degrees * (Math.PI / 180.0);
         // Normalize angle
-        return Math.IEEERemainder(radiansRotation, 2 * Math.PI);
+        return (float)Math.IEEERemainder(radians, 2 * Math.PI);
     }
 
     
@@ -132,7 +132,7 @@ public class TeleopOmniCommunication : MonoBehaviour
             Vector3 movement = omniMovement.GetForwardMovement() + omniMovement.GetStrafeMovement();
             movement *= movementMultiplier;
 
-            if (movement > movementThreshold) {
+            if (movement.magnitude > movementThreshold) {
                 noStepCount = 0;
             }
             else {
