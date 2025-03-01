@@ -96,6 +96,16 @@ public class TeleopOmniCommunication : MonoBehaviour
         }
     }
 
+    float degToRad(float degrees)
+    {
+        // Convert degrees to radians
+        float radians = (float)(degrees * (Math.PI / 180.0));
+        // Normalize angle
+        return Math.IEEERemainder(radiansRotation, 2 * Math.PI);
+    }
+
+    
+
     void Update()
     {
         while (lidarDataQueue.TryDequeue(out string lidarString))
@@ -116,45 +126,31 @@ public class TeleopOmniCommunication : MonoBehaviour
         if (omniMovement != null)
         {
             // Ensure the Omni movement component updates its internal data.
-            // (If you’re in developerMode, the OmniMovementComponent may use alternate input.
-            // Otherwise, it automatically reads from the treadmill.)
             omniMovement.GetOmniInputForCharacterMovement();
 
-            // Retrieve the calculated movement vectors.
-            Vector3 forwardMovement = omniMovement.GetForwardMovement();
-            float degreesRotation = omniMovement.currentOmniYaw;
-            float radiansRotation = (float)(degreesRotation * (Math.PI / 180.0));
-            radiansRotation = (float)Math.IEEERemainder(radiansRotation, 2 * Math.PI);
-            //Debug.Log("Current Rotation: " + radiansRotation);
+            // Get movement
+            Vector3 movement = omniMovement.GetForwardMovement() + omniMovement.GetStrafeMovement();
+            movement *= movementMultiplier;
 
-            double linearCommand = forwardMovement.z * movementMultiplier;
-            if (linearCommand < movementThreshold)
-            {
-                noStepCount += 1;
-                linearCommand = 0;
-            }
-            else
-            {
+            if (movement > movementThreshold) {
                 noStepCount = 0;
             }
-
-            if (Math.Abs((float)radiansRotation - previousRotation) > rotationThreshold)
-            {
+            else {
+                noStepCount += 1;
+            }
+            
+            // Get rotation
+            float radiansRotation = degToRad(omniMovement.currentOmniYaw);
+            if (Math.Abs((float)radiansRotation - previousRotation) > rotationThreshold) {
                 rotateFlag = true;
                 previousRotation = radiansRotation;
-
             }
-            else
-            {
+            else {
                 rotateFlag = false;
                 radiansRotation = previousRotation;
             }
 
-            // Apply a deadzone so we only send meaningful commands.
-            //if (Mathf.Abs((float)linearCommand) < movementThreshold) { 
-            //    linearCommand = 0.0;
-            //}
-
+            // Send message to dog
             if (rotateFlag || (noStepCount < noStepThreshold))
             {
                 // Build the command payload.
@@ -166,7 +162,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                     {
                         // In this protocol, we assume the linear motion is along the x-axis.
                         // Adjust the mapping as needed (e.g. swap axes) to suit your application.
-                        linear = new { x = linearCommand, y = 0.0, z = 0.0 },
+                        linear = new { x = movement.x, y = movement.y, z = movement.z },
                         angular = new { x = 0.0, y = 0.0, z = -radiansRotation },
                         timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                     }
@@ -183,19 +179,6 @@ public class TeleopOmniCommunication : MonoBehaviour
                     Debug.LogError("Error sending message: " + ex.Message);
                 }
             }
-        }
-
-        // Optionally, allow quitting via keyboard (for testing).
-        if (Input.GetKeyDown(KeyCode.Q))
-        {
-            Debug.Log("Quitting...");
-            shouldQuit = true;
-            ws.Close();
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
         }
     }
 
