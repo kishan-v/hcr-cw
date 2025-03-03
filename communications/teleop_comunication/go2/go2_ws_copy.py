@@ -13,7 +13,7 @@ class RotationController(Node):
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
         # Subscriber for odometry (to get current yaw)
-        self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
+        self.odom_sub = self.create_subscription(Odometry, '/utlidar/robot_odom', self.odom_callback, 10)
 
         # Subscriber for rotation commands (target rotation in radians)
         self.angle_sub = self.create_subscription(Float64, '/rotate_angle', self.angle_callback, 10)
@@ -29,10 +29,6 @@ class RotationController(Node):
         self.yaw_threshold = 0.05 
         self.attempt = 0
 
-        self.k_p = 0.5
-        self.max_speed = 0.5   # rad/s
-        self.max_attempts = 100
-
         self.get_logger().info("Rotation Controller node started.")
 
     def odom_callback(self, msg: Odometry):
@@ -45,7 +41,7 @@ class RotationController(Node):
         # When a new rotation command is received, set up the rotation.
         self.target_delta = msg.data  
         self.initial_yaw = self.current_yaw
-        self.target_yaw = self.initial_yaw + self.target_delta
+        self.target_yaw = self.target_delta
         self.target_yaw = math.atan2(math.sin(self.target_yaw), math.cos(self.target_yaw))
         self.rotation_active = True
         self.get_logger().info(f"Received target rotation: {self.target_delta:.2f} radians. "
@@ -59,15 +55,15 @@ class RotationController(Node):
             self.get_logger().info(f"Current yaw: {self.current_yaw:.2f}, Target yaw: {self.target_yaw:.2f}, Error: {error:.2f}")
 
             # Simple proportional controller
-
-            angular_speed = self.k_p * error
+            k_p = 0.5
+            angular_speed = k_p * error
 
             # Limit the angular speed if necessary
-            self.max_speed = 0.5  # rad/s
-            angular_speed = max(-self.max_speed, min(self.max_speed, angular_speed))
+            max_speed = 1  
+            angular_speed = max(-max_speed, min(max_speed, angular_speed))
 
             twist = Twist()
-            if self.attempt > self.max_attempts:
+            if self.attempt > 100:
                 self.get_logger().info("Rotation failed. Stopping.")
                 twist.angular.z = 0.0
                 self.cmd_pub.publish(twist)

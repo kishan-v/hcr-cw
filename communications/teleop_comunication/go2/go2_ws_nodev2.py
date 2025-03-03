@@ -75,35 +75,38 @@ class DogWebsocketClient(Node):
     def process_message(self, message):
         self.get_logger().info(f"Received from relay: {message}")
         try:
-            # Parse the incoming JSON message
             data = json.loads(message)
-            sent_time = data.get("msg", {}).get("timestamp", None)
-            if sent_time is not None:
-                latency = time.time() - sent_time
-                self.get_logger().info(f"Latency: {latency:.3f} seconds")
+            # Expect: data["type"] in { "joystick", "virtuix" }
             
-            # Create a Twist message for linear motion only.
-            twist = Twist()
-            twist.linear.x = data.get("msg", {}).get("linear", {}).get("x", 0.0)
-            twist.linear.y = data.get("msg", {}).get("linear", {}).get("y", 0.0)
-            twist.linear.z = data.get("msg", {}).get("linear", {}).get("z", 0.0)
-            twist.angular.x = 0.0
-            twist.angular.y = 0.0
-            twist.angular.z = 0.0
+            msg_data = data.get("msg", {})
+            linear_x = msg_data.get("linear", {}).get("x", 0.0)
+            angular_z = msg_data.get("angular", {}).get("z", 0.0)
+            
+            input_type = data.get("type", "joystick")  # fallback in case not present
 
-            # Publish the linear Twist command on /cmd_vel
-            self.cmd_pub.publish(twist)
-            self.get_logger().info("Published Twist command on /cmd_vel for linear motion.")
-            
-            # Process the angular (rotation) command from the JSON.
-            target_angle = data.get("msg", {}).get("angular", {}).get("z", 0.0)
-            if target_angle != 0.0:
+            if input_type == "joystick":
+                # JOYSTICK: angular.z is an *angular velocity*, just publish Twist
+                twist = Twist()
+                twist.linear.x = linear_x
+                twist.angular.z = angular_z
+                self.cmd_pub.publish(twist)
+                self.get_logger().info("Published Twist for joystick control")
+
+            elif input_type == "omni":
+                # VIRTUIX: angular.z is *target heading* (absolute angle).
+                twist = Twist()
+                twist.linear.x = linear_x
+                twist.angular.z = 0.0  # No direct turn from here
+                self.cmd_pub.publish(twist)
+
+                # Publish the heading to rotation controller
                 angle_msg = Float64()
-                angle_msg.data = target_angle
+                angle_msg.data = angular_z  
                 self.angle_pub.publish(angle_msg)
-                self.get_logger().info(f"Published rotation command on /rotate_angle: {target_angle:.2f} radians")
+                self.get_logger().info(f"Published rotate_angle: {angular_z:.2f}")
+
         except Exception as e:
-            self.get_logger().warn(f"Could not process message: {e}")
+            self.get_logger().error(f"Error in process_message: {e}")
 
     def run_websocket_client(self):
         # Reconnection loop for robustness.
