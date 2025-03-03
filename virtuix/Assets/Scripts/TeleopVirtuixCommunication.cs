@@ -108,6 +108,7 @@ public class TeleopOmniCommunication : MonoBehaviour
 
     void Update()
     {
+        // LIDAR
         while (lidarDataQueue.TryDequeue(out string lidarString))
         {
             if (lidarProcessor != null)
@@ -141,6 +142,7 @@ public class TeleopOmniCommunication : MonoBehaviour
             
             // Get rotation
             float radiansRotation = degToRad(omniMovement.currentOmniYaw);
+            // Don't update rotation if it's below the threshold
             if (Math.Abs((float)radiansRotation - previousRotation) > rotationThreshold) {
                 rotateFlag = true;
                 previousRotation = radiansRotation;
@@ -158,6 +160,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                 {
                     op = "command",
                     topic = "teleop/cmd_vel",
+                    type = "omni",
                     msg = new
                     {
                         // In this protocol, we assume the linear motion is along the x-axis.
