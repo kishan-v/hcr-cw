@@ -79,49 +79,26 @@ public class TeleopJoystickCommunication : MonoBehaviour
         {
             // Get the joystick's trackpad touch position.
             Vector2 axis = joystick.GetAxis(handType);
+            
             // Deadzone to avoid sending commands on minor joystick noise.
             if (axis.magnitude < deadzone)
             {
-                axis = Vector2.zero;
+                return;
             }
 
             // Get joystick inputs
-            double x = axis.x;
-            double y = axis.y;
-
-            // Convert to forward/backward and absolute angle
-            double linear_x = Math.Sqrt(x * x + y * y); // Forward/backward command
-
-            double relativeAngle;
-            if (y != 0)
-            {
-                relativeAngle = Math.Atan(x / y);
-            }
-            else
-            {
-                if (x>0)
-                {
-                    relativeAngle = Math.PI / 2;
-                }
-                else
-                {
-                    relativeAngle = -Math.PI / 2;
-                }
-            }
-
-            // Relative angle -> absolute angle
-            double absoluteAngle = relativeAngle + prevAngle;
-            prevAngle = absoluteAngle;
-
+            double angular = axis.x;
+            double linear = axis.y;
 
             var command = new
             {
                 op = "command",
                 topic = "teleop/cmd_vel",
+                type = "joystick",
                 msg = new
                 {
-                    linear = new { x = linear_x, y = 0.0, z = 0.0 },
-                    angular = new { x = 0.0, y = 0.0, z = absoluteAngle },
+                    linear = new { x = linear, y = 0.0, z = 0.0 },
+                    angular = new { x = 0.0, y = 0.0, z = angular },
                     timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 }
             };
