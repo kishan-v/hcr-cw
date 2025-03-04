@@ -16,16 +16,14 @@ public class TeleopJoystickCommunication : MonoBehaviour
     public SteamVR_Action_Vector2 joystick = SteamVR_Actions.default_Joystick;
     public SteamVR_Action_Boolean touch = SteamVR_Actions.default_JoystickTouch;
 
+    public double movementMultiplier = 0.4;
+
     // Deadzone threshold
     public float deadzone = 0.1f;
-
-    // Relative turning with absolute interface
-    private double prevAngle;
 
     void Start()
     {
         ConnectWebSocket();
-        prevAngle = 0;
     }
 
     void ConnectWebSocket()
@@ -88,7 +86,7 @@ public class TeleopJoystickCommunication : MonoBehaviour
 
             // Get joystick inputs
             double angular = axis.x;
-            double linear = axis.y;
+            double linear = axis.y * movementMultiplier;
 
             var command = new
             {
@@ -98,7 +96,7 @@ public class TeleopJoystickCommunication : MonoBehaviour
                 msg = new
                 {
                     linear = new { x = linear, y = 0.0, z = 0.0 },
-                    angular = new { x = 0.0, y = 0.0, z = angular },
+                    angular = new { x = 0.0, y = 0.0, z = -angular },
                     timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 }
             };
