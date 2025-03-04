@@ -19,9 +19,52 @@ class WebsocketNode(Node):
         self.websocket = None
         self.loop = None
 
+        self.lidar_sub = self.create_subscription(
+            String,         
+            '/occupancy_grid',
+            self.lidar_callback,
+            10
+        )
+
         # Start the websocket client in a separate thread.
         thread = threading.Thread(target=self.run_websocket_client, daemon=True)
         thread.start()
+
+    def lidar_callback(self, msg):
+        try:
+            # # Parse the incoming JSON from the ROS message
+            # incoming_data = json.loads(msg.data)
+            
+            # # Check that the JSON has the expected keys
+            # expected_keys = {"world_dims", "timestamp", "box_vals"}
+            # if not expected_keys.issubset(incoming_data.keys()):
+            #     self.get_logger().warn("Received LiDAR data does not match expected format.")
+            #     return
+
+            
+            # # Only send if the websocket is connected
+            # if self.websocket is not None:
+            #     # Schedule the send operation on the asyncio event loop
+            #     asyncio.run_coroutine_threadsafe(
+            #         self.websocket.send(json.dumps(incoming_data)),
+            #         self.loop
+            #     )
+                    # Minimal check: verify the expected keys exist as substrings
+            if ('"world_dims"' not in msg.data or
+                '"timestamp"' not in msg.data or
+                '"box_vals"' not in msg.data):
+                self.get_logger().warn("Received LiDAR data does not match expected format.")
+                return
+
+            # Only send if the websocket is connected.
+            if self.websocket is not None:
+                # Forward the raw string without additional serialization.
+                asyncio.run_coroutine_threadsafe(
+                    self.websocket.send(msg.data),
+                    self.loop
+                )
+        except Exception as e:
+            self.get_logger().error(f"Error in lidar_callback: {e}")
 
     def run_websocket_client(self):
         while True:
