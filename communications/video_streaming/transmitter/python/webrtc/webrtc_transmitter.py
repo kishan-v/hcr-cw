@@ -6,6 +6,7 @@ import argparse
 import logging
 import fractions
 import time
+import math
 from typing import Optional
 
 from aiortc import (
@@ -78,7 +79,9 @@ class VideoCameraTrack(MediaStreamTrack):
                 loop = asyncio.get_event_loop()
                 try:
                     # Offload processing to executor without blocking the main loop.
-                    frame = await loop.run_in_executor(self.executor, process_frame, frame)
+                    frame = await loop.run_in_executor(
+                        self.executor, process_frame, frame
+                    )
                 except Exception as e:
                     print(f"CV processing error: {e}")
                     # If processing fails, use the original frame.
@@ -98,10 +101,17 @@ class VideoCameraTrack(MediaStreamTrack):
 
         return video_frame
 
-    async def next_timestamp(self) -> tuple[int, fractions.Fraction]:
+    async def next_timestamp(self):
         """Generate timestamps for frames"""
-        framerate = cv2.CAP_PROP_FPS
-        time_base = fractions.Fraction(1, framerate)
+        framerate = self.cap.get(cv2.CAP_PROP_FPS)
+
+        # Handle invalid framerate values
+        if framerate <= 0 or not math.isfinite(framerate):
+            # Default to 30 fps if invalid
+            framerate = 30.0
+
+        # Convert to Fraction (handle float values)
+        time_base = fractions.Fraction(1, int(framerate))
         pts = int(self.timestamp * framerate)
         self.timestamp += 1
         return pts, time_base
@@ -164,18 +174,29 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
             print("Opening webcam")
         elif VIDEO_SOURCE == "theta":
             # gst_pipeline = ("thetauvcsrc ! decodebin ! autovideoconvert ! video/x-raw,format=BGRx "
-                            # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
+            # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
             # gst_pipeline = ("thetauvcsrc ! queue ! h264parse ! nvdec ! gldownload ! queue "
-                            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
+            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
             # gst_pipeline = ("thetauvcsrc mode=4K ! queue ! h264parse ! nvv4l2decoder ! gldownload ! queue "
-                            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink sync=false drop=true")
+            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink sync=false drop=true")
             # The following pipeline has been verified, but initial tests produced ~1s latency in 2K, ~5s in 4K
+            # gst_pipeline = (
+            #     "thetauvcsrc mode=2K ! decodebin ! autovideoconvert ! "
+            #     "video/x-raw,format=BGRx ! queue ! videoconvert ! "
+            #     "video/x-raw,format=BGR ! queue ! appsink"
+            # )
             gst_pipeline = (
-                "thetauvcsrc mode=2K ! decodebin ! autovideoconvert ! "
-                "video/x-raw,format=BGRx ! queue ! videoconvert ! "
-                "video/x-raw,format=BGR ! queue ! appsink"
+                "thetauvcsrc mode=2K ! "
+                "h264parse ! "
+                "nvv4l2decoder ! "
+                "nvvidconv ! "
+                "video/x-raw, format=BGRx ! "
+                "videoconvert ! "
+                "appsink sync=false drop=true max-buffers=1"
             )
-            capture = cv2.VideoCapture(filename=gst_pipeline, apiPreference=cv2.CAP_GSTREAMER)
+            capture = cv2.VideoCapture(
+                filename=gst_pipeline, apiPreference=cv2.CAP_GSTREAMER
+            )
             print(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
             if not capture.isOpened():
                 raise IOError(
@@ -214,25 +235,28 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
         while True:
             try:
                 msg = await signaling.receive()
-                if msg.get("type") == "candidate":
-                    logging.debug(f"Received ICE candidate: {msg}")
-                    # Directly add the candidate dictionary
-                    candidate = RTCIceCandidate(
-                        # TODO: decompose receiver Candidate format into RTCIceCandidate
-                        component=msg["component"],
-                        foundation=msg["foundation"],
-                        ip=msg["ip"],
-                        port=msg["port"],
-                        priority=msg["priority"],
-                        protocol=msg["protocol"],
-                        type=msg["candidateType"],
-                        relatedAddress=msg.get("relatedAddress"),
-                        relatedPort=msg.get("relatedPort"),
-                        sdpMid=msg["sdpMid"],
-                        sdpMLineIndex=msg["sdpMLineIndex"],
-                        tcpType=msg.get("tcpType"),
-                    )
-                    await pc.addIceCandidate(candidate)
+                if type(msg) == dict:
+                    if msg.get("type") == "candidate":
+                        logging.debug(f"Received ICE candidate: {msg}")
+                        # Directly add the candidate dictionary
+                        candidate = RTCIceCandidate(
+                            # TODO: decompose receiver Candidate format into RTCIceCandidate
+                            component=msg["component"],
+                            foundation=msg["foundation"],
+                            ip=msg["ip"],
+                            port=msg["port"],
+                            priority=msg["priority"],
+                            protocol=msg["protocol"],
+                            type=msg["candidateType"],
+                            relatedAddress=msg.get("relatedAddress"),
+                            relatedPort=msg.get("relatedPort"),
+                            sdpMid=msg["sdpMid"],
+                            sdpMLineIndex=msg["sdpMLineIndex"],
+                            tcpType=msg.get("tcpType"),
+                        )
+                        await pc.addIceCandidate(candidate)
+                else:
+                    print(f"Received unexpected message: {msg} of type: {type(msg)}")
             except Exception as e:
                 logging.exception(f"Error during connection: {e}")
                 break
@@ -262,7 +286,7 @@ if __name__ == "__main__":
 
     ice_servers = [
         RTCIceServer(
-            urls=["stun:stun.l.google.com:19302"]  # type: ignore
+            urls=["stun:stun1.l.google.com:19302"]  # type: ignore
         ),
         RTCIceServer(
             urls=[
