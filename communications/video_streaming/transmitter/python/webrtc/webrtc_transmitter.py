@@ -235,7 +235,10 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
         while True:
             try:
                 msg = await signaling.receive()
-                if type(msg) == dict:
+                if isinstance(msg, RTCSessionDescription):
+                    logging.info(f"Received SDP {msg.type}: {msg}")
+                    await pc.setRemoteDescription(msg)
+                elif isinstance(msg, dict):
                     if msg.get("type") == "candidate":
                         logging.debug(f"Received ICE candidate: {msg}")
                         # Directly add the candidate dictionary
