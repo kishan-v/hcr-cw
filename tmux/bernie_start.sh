@@ -58,8 +58,28 @@ for script in "${SCRIPTS[@]}"; do
     fi
 done
 
-# Kill any existing session with the same name
-tmux kill-session -t bernie_control 2>/dev/null
+# Check if there's already a session called bernie_control
+if tmux has-session -t bernie_control 2>/dev/null; then
+    echo "A tmux session named 'bernie_control' is already running."
+    read -p "Do you want to kill it and start a new one (k) or attach to it (a)? [k/a]: " choice
+    case "$choice" in
+        a|A)
+            echo "Attaching to existing session..."
+            tmux attach -t bernie_control
+            exit 0
+            ;;
+        k|K)
+            echo "Killing existing session..."
+            tmux kill-session -t bernie_control
+            ;;
+        *)
+            echo "Invalid choice. Exiting."
+            exit 1
+            ;;
+    esac
+else
+    echo "No existing bernie_control session found. Creating new session..."
+fi
 
 # Extract script name from the first script and create log file path
 SCRIPT_NAME=$(basename "${SCRIPTS[0]}" .sh)
