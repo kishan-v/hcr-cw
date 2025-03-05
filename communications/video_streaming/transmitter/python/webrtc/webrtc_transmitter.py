@@ -32,7 +32,9 @@ import threading
 # Dhruv's Oracle Server
 WEBSOCKET_SIGNALLING_URI = "ws://132.145.67.221:8765"
 TURN_SERVER_URI = "turn:132.145.67.221:3478"
-VIDEO_SOURCE = "webcam"  # "webcam" or "theta"
+VIDEO_SOURCE = "mp4"  # "webcam" or "theta" or "mp4"
+
+MP4_SOURCE = "test_video.mp4"
 
 COMP_VIS_MODE = False  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
 CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a frame.
@@ -78,7 +80,14 @@ class VideoCameraTrack(MediaStreamTrack):
 
         ret, frame = self.cap.read()
         if not ret:
-            raise Exception("Failed to read frame from webcam")
+            # If reading from an MP4 file, reset to beginning to loop the video
+            if VIDEO_SOURCE == "mp4":
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                ret, frame = self.cap.read()
+                if not ret:
+                    raise Exception("Failed to read frame from MP4 video source")
+            else:
+                raise Exception("Failed to read frame from video source")
 
         if COMP_VIS_MODE:
             current_time = time.time()
@@ -128,7 +137,7 @@ class VideoCameraTrack(MediaStreamTrack):
         cv2.destroyWindow(self.window_name)
 
 
-async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_video: bool) -> None:
+async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_video: bool, disable_lidar: bool) -> None:
     await signaling.connect()
 
     @pc.on("iceconnectionstatechange")
@@ -181,6 +190,16 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
                 )
                 capture = cv2.VideoCapture(index=0)
                 print("Opening webcam")
+            elif VIDEO_SOURCE == "mp4":
+                input( 
+                    "Are you sure you want to stream from mp4 -> Ensure correct MP4 path is set. Press Enter to continue..."
+                )
+                if not MP4_SOURCE:
+                    raise ValueError("MP4 path not provided.")
+                capture = cv2.VideoCapture(MP4_SOURCE)
+                print(f"Opening MP4 file from path: {MP4_SOURCE}")
+                if not capture.isOpened():
+                    raise IOError("Cannot open the specified MP4 file.")
             elif VIDEO_SOURCE == "theta":
                 # gst_pipeline = ("thetauvcsrc ! decodebin ! autovideoconvert ! video/x-raw,format=BGRx "
                 # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
@@ -224,15 +243,21 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
         else:
             print("Video streaming Disabled")
 
-        # Create a data channel for LiDAR data.
-        lidar_channel = pc.createDataChannel("lidar", ordered=False, maxRetransmits=0)
+        if not disable_lidar:
 
-        @lidar_channel.on("open")
-        def on_lidar_channel_open():
-            print("LiDAR data channel is now open.")
+            # Create a data channel for LiDAR data.
+            lidar_channel = pc.createDataChannel("lidar", ordered=False, maxRetransmits=0)
 
-        # Start the ROS2 LiDAR node in a separate thread by calling the imported function.
-        threading.Thread(target=run_lidar_node, args=(lidar_channel,), daemon=True).start()
+            @lidar_channel.on("open")
+            def on_lidar_channel_open():
+                print("LiDAR data channel is now open.")
+
+            loop = asyncio.get_event_loop()
+
+            # Start the ROS2 LiDAR node in a separate thread by calling the imported function.
+            threading.Thread(target=run_lidar_node, args=(lidar_channel, loop), daemon=True).start()
+        else:
+            print("LiDAR data disabled")
 
         # Create and send offer
         offer = await pc.createOffer()
@@ -302,6 +327,7 @@ if __name__ == "__main__":
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
     parser.add_argument("--disable-video", action="store_true", help="Disable video streaming")
+    parser.add_argument("--disable-lidar", action="store_true", help="Disable lidar streaming")
     args = parser.parse_args()
 
     if args.verbose:
@@ -329,6 +355,6 @@ if __name__ == "__main__":
     signaling = WebSocketSignaling(uri=WEBSOCKET_SIGNALLING_URI)
 
     try:
-        asyncio.get_event_loop().run_until_complete(run(pc, signaling, args.disable_video))
+        asyncio.get_event_loop().run_until_complete(run(pc, signaling, args.disable_video, args.disable_lidar))
     except KeyboardInterrupt:
         pass
