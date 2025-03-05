@@ -17,7 +17,7 @@ async def run(pc, signaling):
     # Connect to signaling server
     await signaling.connect()
 
-    # Add video transceiver
+    #Add video transceiver
     pc.addTransceiver("video", direction="recvonly")
 
     @pc.on("track")
@@ -39,6 +39,17 @@ async def run(pc, signaling):
                 cv2.destroyAllWindows()
 
             asyncio.ensure_future(display_video())
+
+    @pc.on("datachannel")
+    def on_datachannel(channel):
+        print("Received data channel:", channel.label)
+        # Optionally check if this is the LiDAR channel
+        if channel.label == "lidar":
+
+            @channel.on("message")
+            def on_message(message):
+                # Process LiDAR data here. For example, print it or update a UI.
+                print("Received LiDAR data:", message)
 
     try:
         # Wait for and process offer from transmitter
