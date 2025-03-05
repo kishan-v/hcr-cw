@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
-import asyncio
-import cv2
-import av
 import argparse
-import logging
+import asyncio
 import fractions
-import time
+import logging
 import math
+import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
+import av
+import cv2
 from aiortc import (
-    RTCPeerConnection,
-    RTCConfiguration,
-    RTCIceServer,
     MediaStreamTrack,
-    RTCSessionDescription,
+    RTCConfiguration,
     RTCIceCandidate,
+    RTCIceServer,
+    RTCPeerConnection,
+    RTCSessionDescription,
 )
-from websocket_signaling import WebSocketSignaling
-from concurrent.futures import ThreadPoolExecutor
 from computer_vision import process_frame
-
+from websocket_signaling import WebSocketSignaling
 
 WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
 TURN_SERVER_URI = "turn:130.162.176.219:3478"
@@ -229,7 +228,9 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
             logging.info("Received SDP answer from receiver")
             await pc.setRemoteDescription(remote_msg)
         else:
-            logging.warning("Expected SDP answer from receiver, but received:", remote_msg)
+            logging.warning(
+                "Expected SDP answer from receiver, but received:", remote_msg
+            )
 
         # Keep the connection alive so video continues streaming
         while True:
