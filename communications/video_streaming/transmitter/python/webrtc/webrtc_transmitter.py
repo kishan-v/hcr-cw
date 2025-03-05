@@ -21,10 +21,14 @@ from websocket_signaling import WebSocketSignaling
 from concurrent.futures import ThreadPoolExecutor
 from computer_vision import process_frame
 
+# Kish's Oracle Server
+# WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
+# TURN_SERVER_URI = "turn:130.162.176.219:3478"
 
-WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
-TURN_SERVER_URI = "turn:130.162.176.219:3478"
-VIDEO_SOURCE = "theta"  # "webcam" or "theta"
+# Dhruv's Oracle Server
+WEBSOCKET_SIGNALLING_URI = "ws://132.145.67.221:8765"
+TURN_SERVER_URI = "turn:132.145.67.221:3478"
+VIDEO_SOURCE = "webcam"  # "webcam" or "theta"
 
 COMP_VIS_MODE = False  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
 CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a frame.
