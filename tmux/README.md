@@ -10,7 +10,7 @@ A tmux-based process management system for the Unitree Go2 robot is provided for
 ## Adding Custom Scripts
 - Create script in [`tmux/scripts/`](/tmux/scripts) directory
 - Run `chmod +x scripts/your_script.sh`
-- Add script path to `SCRIPTS` array in `bernie_start.sh`:
+- Add script path to `SCRIPTS` array in [`bernie_start.sh`](/tmux/bernie_start.sh):
 ```bash
 SCRIPTS=(
     ...
