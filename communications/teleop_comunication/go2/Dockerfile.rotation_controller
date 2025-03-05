@@ -1,0 +1,11 @@
+# Dockerfile.rotation_controller
+FROM ros:foxy
+
+# Copy the rotation controller script into the container
+COPY rotation_controller.py /rotation_controller.py
+
+# Set the working directory (optional)
+WORKDIR /
+
+# Run the script after sourcing the ROS2 Foxy environment
+CMD ["/bin/bash", "-c", "source /opt/ros/foxy/setup.bash && python3 /rotation_controller.py"]

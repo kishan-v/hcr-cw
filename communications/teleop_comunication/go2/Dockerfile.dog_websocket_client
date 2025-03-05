@@ -1,0 +1,15 @@
+# Dockerfile.dog_websocket_client
+FROM ros:foxy
+
+# Install additional Python dependencies (e.g., websockets)
+RUN apt-get update && apt-get install -y python3-pip && \
+    pip3 install websockets
+
+# Copy the dog websocket client script into the container
+COPY go2_ws_nodev2.py /dog_websocket_client.py
+
+# Set the working directory (optional)
+WORKDIR /
+
+# Run the script after sourcing the ROS2 Foxy environment
+CMD ["/bin/bash", "-c", "source /opt/ros/foxy/setup.bash && python3 /dog_websocket_client.py"]
