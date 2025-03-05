@@ -172,18 +172,7 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
             capture = cv2.VideoCapture(index=0)
             print("Opening webcam")
         elif VIDEO_SOURCE == "theta":
-            # gst_pipeline = ("thetauvcsrc ! decodebin ! autovideoconvert ! video/x-raw,format=BGRx "
-            # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
-            # gst_pipeline = ("thetauvcsrc ! queue ! h264parse ! nvdec ! gldownload ! queue "
-            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
-            # gst_pipeline = ("thetauvcsrc mode=4K ! queue ! h264parse ! nvv4l2decoder ! gldownload ! queue "
-            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink sync=false drop=true")
-            # The following pipeline has been verified, but initial tests produced ~1s latency in 2K, ~5s in 4K
-            # gst_pipeline = (
-            #     "thetauvcsrc mode=2K ! decodebin ! autovideoconvert ! "
-            #     "video/x-raw,format=BGRx ! queue ! videoconvert ! "
-            #     "video/x-raw,format=BGR ! queue ! appsink"
-            # )
+            # Verified pipeline: ~ 300 ms latency (to Python receiver on LAN)
             gst_pipeline = (
                 "thetauvcsrc mode=2K ! "
                 "h264parse ! "
@@ -193,10 +182,22 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
                 "videoconvert ! "
                 "appsink sync=false drop=true max-buffers=1"
             )
+            # Work-in-progress, aggressive pipeline (further minimise latency at cost of reliability and quality)
+            # gst_pipeline = (
+            #     "thetauvcsrc mode=2K ! "
+            #     "h264parse ! "
+            #     "nvv4l2decoder disable-dpb=true skip-frames=1 ! "  # Disable DPB and allow frame skipping
+            #     "queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! "  # Minimize buffering
+            #     "nvvidconv interpolation-method=nearest ! "  # Fastest conversion method
+            #     "video/x-raw, format=BGRx ! "
+            #     "videoconvert n-threads=2 ! "  # Use multiple threads for conversion
+            #     "video/x-raw, format=BGR ! "  # OpenCV expects BGR format. It is possible that OpenCV was handling the BGR conversion downstream in the pipeline above, so better to handle in GStreamer.
+            #     "appsink sync=false drop=true max-buffers=1 wait-on-eos=false"
+            # )
             capture = cv2.VideoCapture(
                 filename=gst_pipeline, apiPreference=cv2.CAP_GSTREAMER
             )
-            print(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
+            logging.debug(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
             if not capture.isOpened():
                 raise IOError(
                     "Cannot open RICOH THETA with the given pipeline.\n"
@@ -261,13 +262,13 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
                         )
                         await pc.addIceCandidate(candidate)
                 else:
-                    print(f"Received unexpected message: {msg} of type: {type(msg)}")
+                    logging.warning(f"Received unexpected message: {msg} of type: {type(msg)}")
             except Exception as e:
                 logging.exception(f"Error during connection: {e}")
                 break
 
     except Exception as e:
-        print(f"Error: {e}")
+        logging.exception(f"Error: {e}")
     finally:
         cv2.destroyAllWindows()
         await pc.close()
