@@ -6,10 +6,13 @@ using NativeWebSocket;
 
 public class WebRTCReceiver : MonoBehaviour
 {
-    [SerializeField] private string signallingServerUrl = "ws://130.162.176.219:8765";  // TODO: Add signaling server URL
+    [SerializeField] private string signallingServerUrl = "ws://132.145.67.221:8765";  // TODO: Add signaling server URL
+    [SerializeField] private LidarProcessor lidarProcessor;
+
     private WebSocket websocket;
     public RTCPeerConnection peerConnection;
     public System.Action<Texture> OnVideoTextureUpdated;
+
 
     // Add frame tracking variables
     private int frameCount = 0;
@@ -43,7 +46,7 @@ public class WebRTCReceiver : MonoBehaviour
         public string sdpMid;
         public int sdpMLineIndex;
         public string tcpType;
-    }        
+    }
 
 
     async void Start()
@@ -103,6 +106,15 @@ public class WebRTCReceiver : MonoBehaviour
             }
         };
 
+        peerConnection.OnDataChannel = (RTCDataChannel channel) =>
+        {
+            Debug.Log("Data channel received: " + channel.Label);
+            if (channel.Label == "lidar")
+            {
+                channel.OnMessage = OnLidarMessage;
+            }
+        };
+
         peerConnection.OnIceCandidate = candidate =>
         {
             Debug.Log("OnIceCandidate event received");
@@ -129,6 +141,21 @@ public class WebRTCReceiver : MonoBehaviour
             websocket.SendText(json);
         };
     }
+
+    private void OnLidarMessage(byte[] data)
+    {
+        string message = System.Text.Encoding.UTF8.GetString(data);
+        Debug.Log("Received LiDAR data: " + message);
+        if (lidarProcessor != null)
+        {
+            lidarProcessor.ProcessLidarData(message);
+        }
+        else
+        {
+            Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
+        }
+    }
+
     private async System.Threading.Tasks.Task ConnectToSignalingServer()
     {
         Debug.Log($"Attempting to connect to {signallingServerUrl}");  // Add this

@@ -12,8 +12,6 @@ GameObject:
   - component: {fileID: 5511269344113025238}
   - component: {fileID: 4200436064727160072}
   - component: {fileID: 42600455186732535}
-  - component: {fileID: 835755592097550886}
-  - component: {fileID: 5255503702527851330}
   m_Layer: 0
   m_Name: 360Display 1
   m_TagString: Untagged
@@ -110,29 +108,3 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &835755592097550886
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2532970135202027091}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6e7cdbc488e64445c846843e0cffe74c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  signallingServerUrl: ws://130.162.176.219:8765
---- !u!114 &5255503702527851330
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2532970135202027091}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f63e36f07a0a9414890f5f7bdbf36a41, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  webrtcReceiver: {fileID: 835755592097550886}
