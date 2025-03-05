@@ -218,7 +218,7 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
         await pc.setLocalDescription(offer)
         await signaling.send(pc.localDescription)
 
-        print("Sent SDP offer to signaling server")
+        logging.info("Sent SDP offer to signaling server")
 
         # Wait for the remote answer from receiver
         remote_msg = await signaling.receive()
@@ -226,21 +226,22 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
             isinstance(remote_msg, RTCSessionDescription)
             and remote_msg.type == "answer"
         ):
-            print("Received SDP answer from receiver")
+            logging.info("Received SDP answer from receiver")
             await pc.setRemoteDescription(remote_msg)
         else:
-            print("Did not receive valid SDP answer")
+            logging.warning("Expected SDP answer from receiver, but received:", remote_msg)
 
         # Keep the connection alive so video continues streaming
         while True:
             try:
                 msg = await signaling.receive()
+                # Handle new ICE candidates from receiver post-handshake
                 if isinstance(msg, RTCSessionDescription):
                     logging.info(f"Received SDP {msg.type}: {msg}")
                     await pc.setRemoteDescription(msg)
                 elif isinstance(msg, dict):
                     if msg.get("type") == "candidate":
-                        logging.debug(f"Received ICE candidate: {msg}")
+                        logging.info(f"Received ICE candidate: {msg}")
                         # Directly add the candidate dictionary
                         candidate = RTCIceCandidate(
                             # TODO: decompose receiver Candidate format into RTCIceCandidate
