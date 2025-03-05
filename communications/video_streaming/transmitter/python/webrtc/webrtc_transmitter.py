@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-import asyncio
-import cv2
-import av
 import argparse
-import logging
+import asyncio
 import fractions
-import time
+import logging
 import math
+import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
+import av
+import cv2
 from aiortc import (
-    RTCPeerConnection,
-    RTCConfiguration,
-    RTCIceServer,
     MediaStreamTrack,
-    RTCSessionDescription,
+    RTCConfiguration,
     RTCIceCandidate,
+    RTCIceServer,
+    RTCPeerConnection,
+    RTCSessionDescription,
 )
-from websocket_signaling import WebSocketSignaling
-from concurrent.futures import ThreadPoolExecutor
 from computer_vision import process_frame
+from websocket_signaling import WebSocketSignaling
 
 
 from lidar_node import run_lidar_node
@@ -33,8 +33,10 @@ import threading
 WEBSOCKET_SIGNALLING_URI = "ws://132.145.67.221:8765"
 TURN_SERVER_URI = "turn:132.145.67.221:3478"
 VIDEO_SOURCE = "mp4"  # "webcam" or "theta" or "mp4"
+DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta"
 
 MP4_SOURCE = "test_video.mp4"
+
 
 COMP_VIS_MODE = False  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
 CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a frame.
@@ -137,7 +139,7 @@ class VideoCameraTrack(MediaStreamTrack):
         cv2.destroyWindow(self.window_name)
 
 
-async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_video: bool, disable_lidar: bool) -> None:
+async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_video: bool, disable_lidar: bool, input_device: str = DEFAULT_VIDEO_SOURCE) -> None:
     await signaling.connect()
 
     @pc.on("iceconnectionstatechange")
@@ -184,13 +186,13 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
     try:
         if not disable_video:
             # USE WEBCAM OR RICOH_THETA (using GStreamer backend on Linux)
-            if VIDEO_SOURCE == "webcam":
+            if input_device == "webcam":
                 input(
                     "Are you sure you want to stream from the webcam and not RICOH Theta? Press Enter to continue..."
                 )
                 capture = cv2.VideoCapture(index=0)
                 print("Opening webcam")
-            elif VIDEO_SOURCE == "mp4":
+            elif input_device == "mp4":
                 input( 
                     "Are you sure you want to stream from mp4 -> Ensure correct MP4 path is set. Press Enter to continue..."
                 )
@@ -200,19 +202,8 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
                 print(f"Opening MP4 file from path: {MP4_SOURCE}")
                 if not capture.isOpened():
                     raise IOError("Cannot open the specified MP4 file.")
-            elif VIDEO_SOURCE == "theta":
-                # gst_pipeline = ("thetauvcsrc ! decodebin ! autovideoconvert ! video/x-raw,format=BGRx "
-                # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
-                # gst_pipeline = ("thetauvcsrc ! queue ! h264parse ! nvdec ! gldownload ! queue "
-                # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
-                # gst_pipeline = ("thetauvcsrc mode=4K ! queue ! h264parse ! nvv4l2decoder ! gldownload ! queue "
-                # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink sync=false drop=true")
-                # The following pipeline has been verified, but initial tests produced ~1s latency in 2K, ~5s in 4K
-                # gst_pipeline = (
-                #     "thetauvcsrc mode=2K ! decodebin ! autovideoconvert ! "
-                #     "video/x-raw,format=BGRx ! queue ! videoconvert ! "
-                #     "video/x-raw,format=BGR ! queue ! appsink"
-                # )
+            elif input_device == "theta":
+                # Verified pipeline: ~ 300 ms latency (to Python receiver on LAN)
                 gst_pipeline = (
                     "thetauvcsrc mode=2K ! "
                     "h264parse ! "
@@ -222,10 +213,22 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
                     "videoconvert ! "
                     "appsink sync=false drop=true max-buffers=1"
                 )
+                # Work-in-progress, aggressive pipeline (further minimise latency at cost of reliability and quality)
+                # gst_pipeline = (
+                #     "thetauvcsrc mode=2K ! "
+                #     "h264parse ! "
+                #     "nvv4l2decoder disable-dpb=true skip-frames=1 ! "  # Disable DPB and allow frame skipping
+                #     "queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! "  # Minimize buffering
+                #     "nvvidconv interpolation-method=nearest ! "  # Fastest conversion method
+                #     "video/x-raw, format=BGRx ! "
+                #     "videoconvert n-threads=2 ! "  # Use multiple threads for conversion
+                #     "video/x-raw, format=BGR ! "  # OpenCV expects BGR format. It is possible that OpenCV was handling the BGR conversion downstream in the pipeline above, so better to handle in GStreamer.
+                #     "appsink sync=false drop=true max-buffers=1 wait-on-eos=false"
+                # )
                 capture = cv2.VideoCapture(
                     filename=gst_pipeline, apiPreference=cv2.CAP_GSTREAMER
                 )
-                print(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
+                logging.debug(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
                 if not capture.isOpened():
                     raise IOError(
                         "Cannot open RICOH THETA with the given pipeline.\n"
@@ -275,7 +278,9 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
             logging.info("Received SDP answer from receiver")
             await pc.setRemoteDescription(remote_msg)
         else:
-            logging.warning("Expected SDP answer from receiver, but received:", remote_msg)
+            logging.warning(
+                "Expected SDP answer from receiver, but received:", remote_msg
+            )
 
         # Keep the connection alive so video continues streaming
         while True:
@@ -306,13 +311,13 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
                         )
                         await pc.addIceCandidate(candidate)
                 else:
-                    print(f"Received unexpected message: {msg} of type: {type(msg)}")
+                    logging.warning(f"Received unexpected message: {msg} of type: {type(msg)}")
             except Exception as e:
                 logging.exception(f"Error during connection: {e}")
                 break
 
     except Exception as e:
-        print(f"Error: {e}")
+        logging.exception(f"Error: {e}")
     finally:
         cv2.destroyAllWindows()
         await pc.close()
@@ -321,13 +326,20 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="WebRTC Transmitter (Stream macOS webcam)"
+        description="WebRTC Transmitter"
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
     parser.add_argument("--disable-video", action="store_true", help="Disable video streaming")
     parser.add_argument("--disable-lidar", action="store_true", help="Disable lidar streaming")
+    parser.add_argument(
+        "--device",
+        "-d",
+        type=str,
+        default=DEFAULT_VIDEO_SOURCE,
+        help=f"Video source device. Default: {DEFAULT_VIDEO_SOURCE}. Options: 'webcam', 'theta'.",
+    )
     args = parser.parse_args()
 
     if args.verbose:
@@ -351,10 +363,10 @@ if __name__ == "__main__":
     ]
     configuration = RTCConfiguration(iceServers=ice_servers)
 
-    pc = RTCPeerConnection(configuration)
+    pc = RTCPeerConnection(configuration=configuration)
     signaling = WebSocketSignaling(uri=WEBSOCKET_SIGNALLING_URI)
 
     try:
-        asyncio.get_event_loop().run_until_complete(run(pc, signaling, args.disable_video, args.disable_lidar))
+        asyncio.get_event_loop().run_until_complete(run(pc=pc, signaling=signaling, disable_video=args.disable_video, disable_lidar=args.disable_lidar, input_device=args.device))
     except KeyboardInterrupt:
         pass
