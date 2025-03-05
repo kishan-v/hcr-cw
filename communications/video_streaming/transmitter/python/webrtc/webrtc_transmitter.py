@@ -21,6 +21,10 @@ from websocket_signaling import WebSocketSignaling
 from concurrent.futures import ThreadPoolExecutor
 from computer_vision import process_frame
 
+
+from lidar_node import run_lidar_node
+import threading
+
 # Kish's Oracle Server
 # WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
 # TURN_SERVER_URI = "turn:130.162.176.219:3478"
@@ -124,7 +128,7 @@ class VideoCameraTrack(MediaStreamTrack):
         cv2.destroyWindow(self.window_name)
 
 
-async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
+async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_video: bool) -> None:
     await signaling.connect()
 
     @pc.on("iceconnectionstatechange")
@@ -169,53 +173,66 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
             logging.debug("ICE candidate gathering complete")
 
     try:
-        # USE WEBCAM OR RICOH_THETA (using GStreamer backend on Linux)
-        if VIDEO_SOURCE == "webcam":
-            input(
-                "Are you sure you want to stream from the webcam and not RICOH Theta? Press Enter to continue..."
-            )
-            capture = cv2.VideoCapture(index=0)
-            print("Opening webcam")
-        elif VIDEO_SOURCE == "theta":
-            # gst_pipeline = ("thetauvcsrc ! decodebin ! autovideoconvert ! video/x-raw,format=BGRx "
-            # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
-            # gst_pipeline = ("thetauvcsrc ! queue ! h264parse ! nvdec ! gldownload ! queue "
-            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
-            # gst_pipeline = ("thetauvcsrc mode=4K ! queue ! h264parse ! nvv4l2decoder ! gldownload ! queue "
-            # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink sync=false drop=true")
-            # The following pipeline has been verified, but initial tests produced ~1s latency in 2K, ~5s in 4K
-            # gst_pipeline = (
-            #     "thetauvcsrc mode=2K ! decodebin ! autovideoconvert ! "
-            #     "video/x-raw,format=BGRx ! queue ! videoconvert ! "
-            #     "video/x-raw,format=BGR ! queue ! appsink"
-            # )
-            gst_pipeline = (
-                "thetauvcsrc mode=2K ! "
-                "h264parse ! "
-                "nvv4l2decoder ! "
-                "nvvidconv ! "
-                "video/x-raw, format=BGRx ! "
-                "videoconvert ! "
-                "appsink sync=false drop=true max-buffers=1"
-            )
-            capture = cv2.VideoCapture(
-                filename=gst_pipeline, apiPreference=cv2.CAP_GSTREAMER
-            )
-            print(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
-            if not capture.isOpened():
-                raise IOError(
-                    "Cannot open RICOH THETA with the given pipeline.\n"
-                    "Do you have GStreamer backend installed for opencv-python?\n"
-                    "Have you tried re-installing libuvc-theta?"
+        if not disable_video:
+            # USE WEBCAM OR RICOH_THETA (using GStreamer backend on Linux)
+            if VIDEO_SOURCE == "webcam":
+                input(
+                    "Are you sure you want to stream from the webcam and not RICOH Theta? Press Enter to continue..."
                 )
-        else:
-            raise ValueError("Invalid video source. Must be 'webcam' or 'theta'")
+                capture = cv2.VideoCapture(index=0)
+                print("Opening webcam")
+            elif VIDEO_SOURCE == "theta":
+                # gst_pipeline = ("thetauvcsrc ! decodebin ! autovideoconvert ! video/x-raw,format=BGRx "
+                # "! queue ! videoconvert ! video/x-raw,format=BGR ! queue ! appsink")  # TODO: add hardware acceleration
+                # gst_pipeline = ("thetauvcsrc ! queue ! h264parse ! nvdec ! gldownload ! queue "
+                # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink")
+                # gst_pipeline = ("thetauvcsrc mode=4K ! queue ! h264parse ! nvv4l2decoder ! gldownload ! queue "
+                # "! videoconvert n-threads=0 ! video/x-raw,format=BGR ! queue ! appsink sync=false drop=true")
+                # The following pipeline has been verified, but initial tests produced ~1s latency in 2K, ~5s in 4K
+                # gst_pipeline = (
+                #     "thetauvcsrc mode=2K ! decodebin ! autovideoconvert ! "
+                #     "video/x-raw,format=BGRx ! queue ! videoconvert ! "
+                #     "video/x-raw,format=BGR ! queue ! appsink"
+                # )
+                gst_pipeline = (
+                    "thetauvcsrc mode=2K ! "
+                    "h264parse ! "
+                    "nvv4l2decoder ! "
+                    "nvvidconv ! "
+                    "video/x-raw, format=BGRx ! "
+                    "videoconvert ! "
+                    "appsink sync=false drop=true max-buffers=1"
+                )
+                capture = cv2.VideoCapture(
+                    filename=gst_pipeline, apiPreference=cv2.CAP_GSTREAMER
+                )
+                print(f"Opening GStreamer with pipeline:\n{gst_pipeline}")
+                if not capture.isOpened():
+                    raise IOError(
+                        "Cannot open RICOH THETA with the given pipeline.\n"
+                        "Do you have GStreamer backend installed for opencv-python?\n"
+                        "Have you tried re-installing libuvc-theta?"
+                    )
+            else:
+                raise ValueError("Invalid video source. Must be 'webcam' or 'theta'")
 
-        # Add local track
-        local_video = VideoCameraTrack(
-            video_capture=capture, cv_interval_secs=CV_INTERVAL_SECS
-        )
-        pc.addTrack(local_video)
+            # Add local track
+            local_video = VideoCameraTrack(
+                video_capture=capture, cv_interval_secs=CV_INTERVAL_SECS
+            )
+            pc.addTrack(local_video)
+        else:
+            print("Video streaming Disabled")
+
+        # Create a data channel for LiDAR data.
+        lidar_channel = pc.createDataChannel("lidar", ordered=False, maxRetransmits=0)
+
+        @lidar_channel.on("open")
+        def on_lidar_channel_open():
+            print("LiDAR data channel is now open.")
+
+        # Start the ROS2 LiDAR node in a separate thread by calling the imported function.
+        threading.Thread(target=run_lidar_node, args=(lidar_channel,), daemon=True).start()
 
         # Create and send offer
         offer = await pc.createOffer()
@@ -284,6 +301,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
+    parser.add_argument("--disable-video", action="store_true", help="Disable video streaming")
     args = parser.parse_args()
 
     if args.verbose:
@@ -311,6 +329,6 @@ if __name__ == "__main__":
     signaling = WebSocketSignaling(uri=WEBSOCKET_SIGNALLING_URI)
 
     try:
-        asyncio.get_event_loop().run_until_complete(run(pc, signaling))
+        asyncio.get_event_loop().run_until_complete(run(pc, signaling, args.disable_video))
     except KeyboardInterrupt:
         pass
