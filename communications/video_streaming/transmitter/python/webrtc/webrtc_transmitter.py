@@ -23,7 +23,7 @@ from websocket_signaling import WebSocketSignaling
 
 WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
 TURN_SERVER_URI = "turn:130.162.176.219:3478"
-VIDEO_SOURCE = "theta"  # "webcam" or "theta"
+DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta"
 
 COMP_VIS_MODE = False  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
 CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a frame.
@@ -119,7 +119,7 @@ class VideoCameraTrack(MediaStreamTrack):
         cv2.destroyWindow(self.window_name)
 
 
-async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
+async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, input_device: str = DEFAULT_VIDEO_SOURCE) -> None:
     await signaling.connect()
 
     @pc.on("iceconnectionstatechange")
@@ -165,13 +165,13 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
 
     try:
         # USE WEBCAM OR RICOH_THETA (using GStreamer backend on Linux)
-        if VIDEO_SOURCE == "webcam":
+        if input_device == "webcam":
             input(
                 "Are you sure you want to stream from the webcam and not RICOH Theta? Press Enter to continue..."
             )
             capture = cv2.VideoCapture(index=0)
             print("Opening webcam")
-        elif VIDEO_SOURCE == "theta":
+        elif input_device == "theta":
             # Verified pipeline: ~ 300 ms latency (to Python receiver on LAN)
             gst_pipeline = (
                 "thetauvcsrc mode=2K ! "
@@ -277,10 +277,17 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="WebRTC Transmitter (Stream macOS webcam)"
+        description="WebRTC Transmitter"
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
+    )
+    parser.add_argument(
+        "--device",
+        "-d",
+        type=str,
+        default=DEFAULT_VIDEO_SOURCE,
+        help=f"Video source device. Default: {DEFAULT_VIDEO_SOURCE}. Options: 'webcam', 'theta'.",
     )
     args = parser.parse_args()
 
@@ -305,10 +312,12 @@ if __name__ == "__main__":
     ]
     configuration = RTCConfiguration(iceServers=ice_servers)
 
-    pc = RTCPeerConnection(configuration)
+    pc = RTCPeerConnection(configuration=configuration)
     signaling = WebSocketSignaling(uri=WEBSOCKET_SIGNALLING_URI)
 
     try:
-        asyncio.get_event_loop().run_until_complete(run(pc, signaling))
+        asyncio.get_event_loop().run_until_complete(
+            run(pc=pc, signaling=signaling, input_device=args.device)
+        )
     except KeyboardInterrupt:
         pass
