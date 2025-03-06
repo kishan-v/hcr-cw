@@ -8,6 +8,7 @@ echo "Working from repository: $REPO_DIR"
 # --------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------
 # Add as many scripts as needed, and panes will automatically be created for each
+# Remember to run `chmod +x <script_name>.sh` to make the scripts executable
 SCRIPTS=(
     "$REPO_DIR/tmux/scripts/start_video_transmitter.sh"
     "$REPO_DIR/tmux/scripts/script2.sh"
