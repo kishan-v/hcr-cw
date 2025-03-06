@@ -10,7 +10,6 @@ client_message_counts = {}
 HOST = "0.0.0.0"
 PORT = 8765
 
-
 def get_timestamp():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
