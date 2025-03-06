@@ -27,6 +27,14 @@ public class WebRTCReceiver : MonoBehaviour
     }
 
     [Serializable]
+    public class RestartMessage
+    {
+        public string type = "restart";
+        public string clientType = "receiver";
+        public string message = "Please restart WebRTC handshake";
+    }
+
+    [Serializable]
     public class IceCandidateMessage
     {
         public string candidate; // ICE candidate
@@ -71,7 +79,17 @@ public class WebRTCReceiver : MonoBehaviour
 
         // Setup video transceiver
         var transceiverInit = new RTCRtpTransceiverInit { direction = RTCRtpTransceiverDirection.RecvOnly };
-        peerConnection.AddTransceiver(TrackKind.Video, transceiverInit);
+        var transceiver = peerConnection.AddTransceiver(TrackKind.Video, transceiverInit);
+        
+        // Get all available video codecs
+        var codecs = RTCRtpSender.GetCapabilities(TrackKind.Video).codecs;
+        
+        // Filter codecs
+        var h264Codecs = codecs.Where(codec => codec.mimeType == "video/H264");
+        
+        var error = transceiver.SetCodecPreferences(h264Codecs.ToArray());
+        if (error != RTCErrorType.None)
+            Debug.LogError("SetCodecPreferences failed");
 
         // Add connection state monitoring
         peerConnection.OnConnectionStateChange = state =>
@@ -139,10 +157,16 @@ public class WebRTCReceiver : MonoBehaviour
         websocket.OnError += HandleWebSocketError;
         websocket.OnClose += HandleWebSocketClose;
 
-        websocket.OnOpen += () =>
+        websocket.OnOpen += async () => 
         {
             Debug.Log("WebSocket connection opened!");
-            Debug.Log($"WebSocket State: {websocket.State}");  // Add this
+            Debug.Log($"WebSocket State: {websocket.State}");
+            
+            // Send restart message to all connected transmitters
+            RestartMessage restartMessage = new RestartMessage();
+            string json = JsonUtility.ToJson(restartMessage);
+            Debug.Log("Sending restart request to transmitters: " + json);
+            await websocket.SendText(json);
         };
 
         try

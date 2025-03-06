@@ -9,7 +9,7 @@
    - Or, [Python Receiver](receiver/python/webrtc/webrtc_receiver.py)
 3. Ensure the Ricoh Theta 360 camera is connected to the Jetson USB-C (data+charging) port **AND** is in **Live Streaming** mode (not Camera or Video mode)
    - Press the mode button on the side of the camera to cycle through modes
-4. Start the [WebRTC transmitter](transmitter/python/webrtc/webrtc_transmitter.py) on the Jetson (must start **after** the receiver is running)
+4. Start the [WebRTC transmitter](transmitter/python/webrtc/webrtc_transmitter.py) on the Jetson
    - ```bash
      pyenv shell system  # Use system Python (3.8.10)
      python3 "transmitter/python/webrtc/webrtc_transmitter.py"

@@ -17,6 +17,16 @@ async def run(pc, signaling):
     # Connect to signaling server
     await signaling.connect()
 
+    # Send restart command to transmitter
+    print("Sending restart command to transmitter...")
+    restart_message = {
+        "type": "restart",
+        "clientType": "receiver",
+        "message": "Receiver requesting connection restart"
+    }
+    await signaling.send(restart_message)
+    print("Restart command sent")
+
     # Add video transceiver
     pc.addTransceiver("video", direction="recvonly")
 
