@@ -32,8 +32,8 @@ import threading
 # Dhruv's Oracle Server
 WEBSOCKET_SIGNALLING_URI = "ws://132.145.67.221:8765"
 TURN_SERVER_URI = "turn:132.145.67.221:3478"
-VIDEO_SOURCE = "mp4"  # "webcam" or "theta" or "mp4"
-DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta"
+# VIDEO_SOURCE = "mp4"  # "webcam" or "theta" or "mp4"
+DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta" or "mp4"
 
 MP4_SOURCE = "test_video.mp4"
 
@@ -49,6 +49,7 @@ class VideoCameraTrack(MediaStreamTrack):
         self,
         video_capture: Optional[cv2.VideoCapture] = None,
         cv_interval_secs: float = 1.0,
+        device: str = DEFAULT_VIDEO_SOURCE,
     ):
         """
         :param video_capture: cv2.VideoCapture object (or None to open default)
@@ -73,6 +74,7 @@ class VideoCameraTrack(MediaStreamTrack):
 
         # self.window_name = "Local Preview"
         # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        self.device = device
 
     async def recv(self) -> av.VideoFrame:
         pts, time_base = await self.next_timestamp()
@@ -83,7 +85,7 @@ class VideoCameraTrack(MediaStreamTrack):
         ret, frame = self.cap.read()
         if not ret:
             # If reading from an MP4 file, reset to beginning to loop the video
-            if VIDEO_SOURCE == "mp4":
+            if self.device == "mp4":
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 ret, frame = self.cap.read()
                 if not ret:
@@ -139,7 +141,13 @@ class VideoCameraTrack(MediaStreamTrack):
         cv2.destroyWindow(self.window_name)
 
 
-async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_video: bool, disable_lidar: bool, input_device: str = DEFAULT_VIDEO_SOURCE) -> None:
+async def run(
+    pc: RTCPeerConnection,
+    signaling: WebSocketSignaling,
+    disable_video: bool,
+    disable_lidar: bool,
+    input_device: str = DEFAULT_VIDEO_SOURCE,
+) -> None:
     await signaling.connect()
 
     @pc.on("iceconnectionstatechange")
@@ -193,7 +201,7 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
                 capture = cv2.VideoCapture(index=0)
                 print("Opening webcam")
             elif input_device == "mp4":
-                input( 
+                input(
                     "Are you sure you want to stream from mp4 -> Ensure correct MP4 path is set. Press Enter to continue..."
                 )
                 if not MP4_SOURCE:
@@ -240,7 +248,9 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
 
             # Add local track
             local_video = VideoCameraTrack(
-                video_capture=capture, cv_interval_secs=CV_INTERVAL_SECS
+                video_capture=capture,
+                cv_interval_secs=CV_INTERVAL_SECS,
+                device=input_device,
             )
             pc.addTrack(local_video)
         else:
@@ -249,7 +259,9 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
         if not disable_lidar:
 
             # Create a data channel for LiDAR data.
-            lidar_channel = pc.createDataChannel("lidar", ordered=False, maxRetransmits=0)
+            lidar_channel = pc.createDataChannel(
+                "lidar", ordered=False, maxRetransmits=0
+            )
 
             @lidar_channel.on("open")
             def on_lidar_channel_open():
@@ -258,7 +270,9 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
             loop = asyncio.get_event_loop()
 
             # Start the ROS2 LiDAR node in a separate thread by calling the imported function.
-            threading.Thread(target=run_lidar_node, args=(lidar_channel, loop), daemon=True).start()
+            threading.Thread(
+                target=run_lidar_node, args=(lidar_channel, loop), daemon=True
+            ).start()
         else:
             print("LiDAR data disabled")
 
@@ -311,7 +325,9 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
                         )
                         await pc.addIceCandidate(candidate)
                 else:
-                    logging.warning(f"Received unexpected message: {msg} of type: {type(msg)}")
+                    logging.warning(
+                        f"Received unexpected message: {msg} of type: {type(msg)}"
+                    )
             except Exception as e:
                 logging.exception(f"Error during connection: {e}")
                 break
@@ -325,14 +341,16 @@ async def run(pc: RTCPeerConnection, signaling: WebSocketSignaling, disable_vide
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="WebRTC Transmitter"
-    )
+    parser = argparse.ArgumentParser(description="WebRTC Transmitter")
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
-    parser.add_argument("--disable-video", action="store_true", help="Disable video streaming")
-    parser.add_argument("--disable-lidar", action="store_true", help="Disable lidar streaming")
+    parser.add_argument(
+        "--disable-video", action="store_true", help="Disable video streaming"
+    )
+    parser.add_argument(
+        "--disable-lidar", action="store_true", help="Disable lidar streaming"
+    )
     parser.add_argument(
         "--device",
         "-d",
@@ -349,9 +367,7 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
 
     ice_servers = [
-        RTCIceServer(
-            urls=["stun:stun1.l.google.com:19302"]  # type: ignore
-        ),
+        RTCIceServer(urls=["stun:stun1.l.google.com:19302"]),  # type: ignore
         RTCIceServer(
             urls=[
                 f"{TURN_SERVER_URI}?transport=udp",
@@ -367,6 +383,14 @@ if __name__ == "__main__":
     signaling = WebSocketSignaling(uri=WEBSOCKET_SIGNALLING_URI)
 
     try:
-        asyncio.get_event_loop().run_until_complete(run(pc=pc, signaling=signaling, disable_video=args.disable_video, disable_lidar=args.disable_lidar, input_device=args.device))
+        asyncio.get_event_loop().run_until_complete(
+            run(
+                pc=pc,
+                signaling=signaling,
+                disable_video=args.disable_video,
+                disable_lidar=args.disable_lidar,
+                input_device=args.device,
+            )
+        )
     except KeyboardInterrupt:
         pass
