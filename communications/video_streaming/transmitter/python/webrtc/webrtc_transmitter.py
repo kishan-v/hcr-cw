@@ -23,7 +23,7 @@ from websocket_signaling import WebSocketSignaling
 
 WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
 TURN_SERVER_URI = "turn:130.162.176.219:3478"
-DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta"
+DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
 
 COMP_VIS_MODE = False  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
 CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a frame.
