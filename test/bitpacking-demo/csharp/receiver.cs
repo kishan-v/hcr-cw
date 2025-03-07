@@ -44,10 +44,10 @@ namespace BitPackingReceiver
                     {
                         // Unpack the fixed-length data
                         int width = BitConverter.ToInt32(fixedBuffer, 0);
-                        int depth = BitConverter.ToInt32(fixedBuffer, 1);
-                        int height = BitConverter.ToInt32(fixedBuffer, 2);
-                        float stepsize = BitConverter.ToSingle(fixedBuffer, 3);
-                        int timestamp = BitConverter.ToInt32(fixedBuffer, 4);
+                        int depth = BitConverter.ToInt32(fixedBuffer, 4);
+                        int height = BitConverter.ToInt32(fixedBuffer, 8);
+                        float stepsize = BitConverter.ToSingle(fixedBuffer, 12);
+                        int timestamp = BitConverter.ToInt32(fixedBuffer, 16);
 
                         // Extract the packed box_vals
                         // Yes this is 4kb on the heap
