@@ -1,6 +1,8 @@
 import socket
-import struct
 import time
+import struct
+import json
+from fake_data import json_message
 
 def send_packed_data():
     # Create a socket
@@ -24,40 +26,31 @@ def send_packed_data():
                 raise e
     
     try:
-        # Example data to send
-        int_value = 42
-        float_value = 3.14159
-        bool_value = True
-        char_value = 'A'
-        short_array = [1, 2, 3, 4, 5]
-        text = "Hello from Python Docker container!"
-        
-        # Pack the data
-        # Format string explanation:
-        # i - 4-byte int
-        # f - 4-byte float
-        # ? - 1-byte boolean
-        # c - 1-byte char
-        # 5h - 5 short integers (2-bytes each)
-        # H - unsigned short for string length
-        # {}s - string of specified length
-        
-        # First pack the fixed-length data
-        fixed_data = struct.pack('if?c5h', 
-                                int_value, 
-                                float_value, 
-                                bool_value, 
-                                char_value.encode('ascii'),
-                                *short_array)
-        
-        # Then handle the variable-length string
-        text_bytes = text.encode('utf-8')
-        text_len = len(text_bytes)
-        string_data = struct.pack(f'H{text_len}s', text_len, text_bytes)
-        
-        # Combine both parts
-        full_data = fixed_data + string_data
-        
+        # Keep the timestamp and worlddims the same, the box_vals are the main
+        # inefficiency
+
+        # Define a bytearray for the bitpacked data
+        packed = bytearray()
+        payload = json.loads(json_message)
+        bools = payload['box_vals']
+        # Increment by 8 each time (for bitpacking into bytes)
+        for i in range(0, len(bools), 8):
+            byte = 0
+            chunk = bools[i:i+8]
+            for j, b, in enumerate(chunk):
+                # OR and shift
+                byte |= (1 if b else 0) << j
+            # Add the byte to the bytearray. Make sure it's clear this is
+            # big-endian!
+            packed.append(byte)
+
+        print(f"Packed box_vals has size {len(packed)}")
+
+        dims = payload['world_dims']
+        header_data = struct.pack('iiifL', dims['width'], dims['depth'], dims['height'], dims['step_size'], payload['timestamp'])
+        # Concatenate the struct-packed worlddims and timestamp to the bitpacked box_vals
+        full_data = header_data + packed
+
         # Send the data
         sock.sendall(full_data)
         print(f"Sent {len(full_data)} bytes of packed data")

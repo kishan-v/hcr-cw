@@ -33,8 +33,7 @@ namespace BitPackingReceiver
                     // Get stream for reading data
                     NetworkStream stream = client.GetStream();
                     
-                    // Buffer for fixed-length data (4 + 4 + 1 + 1 + 10 = 20 bytes)
-                    // int (4) + float (4) + bool (1) + char (1) + 5 shorts (10)
+                    // Struct format on python-end is iiifL = total 20 bytes
                     byte[] fixedBuffer = new byte[20];
                     
                     // Read the fixed-length part first
@@ -44,35 +43,38 @@ namespace BitPackingReceiver
                     if (bytesRead == fixedBuffer.Length)
                     {
                         // Unpack the fixed-length data
-                        int intValue = BitConverter.ToInt32(fixedBuffer, 0);
-                        float floatValue = BitConverter.ToSingle(fixedBuffer, 4);
-                        bool boolValue = BitConverter.ToBoolean(fixedBuffer, 8);
-                        char charValue = (char)fixedBuffer[9];
-                        
-                        short[] shortArray = new short[5];
-                        for (int i = 0; i < 5; i++)
+                        int width = BitConverter.ToInt32(fixedBuffer, 0);
+                        int depth = BitConverter.ToInt32(fixedBuffer, 1);
+                        int height = BitConverter.ToInt32(fixedBuffer, 2);
+                        float stepsize = BitConverter.ToSingle(fixedBuffer, 3);
+                        int timestamp = BitConverter.ToInt32(fixedBuffer, 4);
+
+                        // Extract the packed box_vals
+                        // Yes this is 4kb on the heap
+                        byte[] packedBoxVals = new byte[4000];
+                        stream.Read(packedBoxVals, 0, 4000);
+
+                        // Unpack the boxvals
+                        var unpackedBoxVals = new List<bool>(32000);
+                        foreach (byte b in packedBoxVals)
                         {
-                            shortArray[i] = BitConverter.ToInt16(fixedBuffer, 10 + (i * 2));
+                            for (int i = 0; i < 8; i++)
+                            {
+                                // Extract a bit and shift along
+                                // remember this is big-endian!!
+                                bool bit = (b & (1 << i)) != 0;
+                                unpackedBoxVals.Add(bit);
+                            }
                         }
-                        
-                        // Read string length (2 bytes)
-                        byte[] stringLenBuffer = new byte[2];
-                        stream.Read(stringLenBuffer, 0, 2);
-                        ushort stringLength = BitConverter.ToUInt16(stringLenBuffer, 0);
-                        
-                        // Read the string data
-                        byte[] stringBuffer = new byte[stringLength];
-                        stream.Read(stringBuffer, 0, stringLength);
-                        string text = Encoding.UTF8.GetString(stringBuffer);
                         
                         // Display the unpacked values
                         Console.WriteLine("\nUnpacked data:");
-                        Console.WriteLine($"Integer: {intValue}");
-                        Console.WriteLine($"Float: {floatValue}");
-                        Console.WriteLine($"Boolean: {boolValue}");
-                        Console.WriteLine($"Character: {charValue}");
-                        Console.WriteLine($"Short Array: [{string.Join(", ", shortArray)}]");
-                        Console.WriteLine($"Text: \"{text}\"");
+                        Console.WriteLine($"Width: {width}");
+                        Console.WriteLine($"Depth: {depth}");
+                        Console.WriteLine($"Height: {height}");
+                        Console.WriteLine($"Stepsize: {stepsize}");
+                        Console.WriteLine($"Timestamp: {timestamp}");
+                        Console.WriteLine(string.Join(", ", unpackedBoxVals));
                         
                         // Send acknowledgment
                         string response = "Data received successfully";
