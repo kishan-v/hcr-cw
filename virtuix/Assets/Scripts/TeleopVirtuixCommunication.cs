@@ -18,12 +18,13 @@ public class TeleopOmniCommunication : MonoBehaviour
     public OmniMovementComponent omniMovement;
 
     // A threshold below which we treat movement as zero (to filter out noise).
-    public float movementThreshold = 0.05f;
+    public float movementThreshold = 0.01f;
     public float movementMultiplier = 10;
     private Vector3 previousMovement = new(0, 0, 0);
     public Vector3 movement = new(0, 0, 0); // Debug
+    public Vector3 debugMovement = new(0, 0, 0); // Debug
     private int noStepCount = 0;
-    public int noStepThreshold = 3;
+    public int noStepThreshold = 10;
 
     public double speedLimit = 0.4;
     private int steps = 5;
@@ -163,8 +164,9 @@ public class TeleopOmniCommunication : MonoBehaviour
 
             // Get movement
             movement = omniMovement.GetForwardMovement() + omniMovement.GetStrafeMovement();
+            debugMovement = movement;
 
-            if (movement.x < movementThreshold) {
+            if (Math.Abs(movement.x) > movementThreshold) {
                 noStepCount = 0;
                 movement = new Vector3((float)-0.4,(float)0.0,(float)0.0);
                 //double steppedLinear = Math.Round(debugMovement.Multiply(Vector3.(steps,steps,steps))) / steps;
@@ -176,6 +178,10 @@ public class TeleopOmniCommunication : MonoBehaviour
                 if (noStepCount > noStepThreshold)
                 {
                     movement = new Vector3((float)0.0, (float)0.0, (float)0.0);
+                }
+                else
+                {
+                    movement = previousMovement;
                 }
             }
 
