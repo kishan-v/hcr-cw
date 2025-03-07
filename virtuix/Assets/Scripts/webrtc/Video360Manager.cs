@@ -1,3 +1,5 @@
+// Author: Kishan <kishan-v@users.noreply.github.com>
+
 using UnityEngine;
 
 public class Video360Manager : MonoBehaviour
