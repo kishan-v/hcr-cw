@@ -418,7 +418,6 @@ if __name__ == "__main__":
                 signaling=signaling,
                 disable_video=args.disable_video,
                 disable_lidar=args.disable_lidar,
-                signaling=signaling,
                 input_device=args.device,
             )
         )
