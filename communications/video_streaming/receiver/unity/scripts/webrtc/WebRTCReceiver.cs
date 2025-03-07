@@ -2,11 +2,12 @@ using Unity.WebRTC;
 using UnityEngine;
 using System;
 using System.Collections;
+using System.Linq;
 using NativeWebSocket;
 
 public class WebRTCReceiver : MonoBehaviour
 {
-    [SerializeField] private string signallingServerUrl = "ws://130.162.176.219:8765";  // TODO: Add signaling server URL
+    [SerializeField] private string signallingServerUrl = "ws://130.162.176.219:8765";
     private WebSocket websocket;
     public RTCPeerConnection peerConnection;
     public System.Action<Texture> OnVideoTextureUpdated;
@@ -60,17 +61,28 @@ public class WebRTCReceiver : MonoBehaviour
             iceServers = new[] {
                 new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } },
                 new RTCIceServer { 
-                    urls = new string[] { "turn:130.162.176.219:3478?transport=udp", "turn:130.162.176.219:3478?transport=tcp" },
-                    username = "username",
-                    credential = "password"
+                   urls = new string[] { "turn:130.162.176.219:3478?transport=udp", "turn:130.162.176.219:3478?transport=tcp" },
+                   username = "username",
+                   credential = "password"
                 },
             },
+            // iceTransportPolicy = RTCIceTransportPolicy.Relay  // Force TURN relay
         };
         peerConnection = new RTCPeerConnection(ref configuration);
 
         // Setup video transceiver
         var transceiverInit = new RTCRtpTransceiverInit { direction = RTCRtpTransceiverDirection.RecvOnly };
-        peerConnection.AddTransceiver(TrackKind.Video, transceiverInit);
+        var transceiver = peerConnection.AddTransceiver(TrackKind.Video, transceiverInit);
+        
+        // Get all available video codecs
+        var codecs = RTCRtpSender.GetCapabilities(TrackKind.Video).codecs;
+        
+        // Filter codecs
+        var h264Codecs = codecs.Where(codec => codec.mimeType == "video/H264");
+        
+        var error = transceiver.SetCodecPreferences(h264Codecs.ToArray());
+        if (error != RTCErrorType.None)
+            Debug.LogError("SetCodecPreferences failed");
 
         // Add connection state monitoring
         peerConnection.OnConnectionStateChange = state =>

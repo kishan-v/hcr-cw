@@ -8,6 +8,7 @@ echo "Working from repository: $REPO_DIR"
 # --------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------
 # Add as many scripts as needed, and panes will automatically be created for each
+# Remember to run `chmod +x <script_name>.sh` to make the scripts executable
 SCRIPTS=(
     "$REPO_DIR/tmux/scripts/start_video_transmitter.sh"
     "$REPO_DIR/tmux/scripts/script2.sh"
@@ -37,11 +38,12 @@ echo "Logs will be stored in: $SESSION_LOG_DIR"
 get_command_string() {
     local script=$1
     local log_file=$2
+    local scripts_dir="$REPO_DIR/tmux/scripts"
     
     if [ $AUTO_EXIT -eq 1 ]; then
-        echo "{ $script; } 2>&1 | tee \"$log_file\""
+        echo "{ cd \"$scripts_dir\" && $script; } 2>&1 | tee \"$log_file\""
     else
-        echo "{ $script; } 2>&1 | tee \"$log_file\"; exec bash"
+        echo "{ cd \"$scripts_dir\" && $script; } 2>&1 | tee \"$log_file\"; exec bash"
     fi
 }
 
@@ -58,9 +60,29 @@ for script in "${SCRIPTS[@]}"; do
     fi
 done
 
+# Check if we're already inside a tmux session
+if [ -n "$TMUX" ]; then
+    CURRENT_SESSION=$(tmux display-message -p '#S')
+    if [ "$CURRENT_SESSION" = "bernie_control" ]; then
+        echo "You're currently inside the bernie_control session."
+        read -p "You must kill the current session before you relaunch this script. Kill the current session?: [Y/n]: " kill_choice
+        case "$kill_choice" in
+            n|N)
+                echo "Cancelled."
+                exit 1
+                ;;
+            *)
+                echo "Killing current session. Please run this script again to create a new session."
+                tmux kill-session -t bernie_control
+                exit 0
+                ;;
+        esac
+    fi
+fi
+
 # Check if there's already a session called bernie_control
 if tmux has-session -t bernie_control 2>/dev/null; then
-    echo "A tmux session named 'bernie_control' is already running."
+    echo "WARNING: A tmux session named 'bernie_control' is already running."
     read -p "Do you want to kill it and start a new one (k) or attach to it (a)? [k/a]: " choice
     case "$choice" in
         a|A)

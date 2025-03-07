@@ -17,7 +17,17 @@ async def run(pc, signaling):
     # Connect to signaling server
     await signaling.connect()
 
-    #Add video transceiver
+    # Send restart command to transmitter
+    print("Sending restart command to transmitter...")
+    restart_message = {
+        "type": "restart",
+        "clientType": "receiver",
+        "message": "Receiver requesting connection restart"
+    }
+    await signaling.send(restart_message)
+    print("Restart command sent")
+
+    # Add video transceiver
     pc.addTransceiver("video", direction="recvonly")
 
     @pc.on("track")
@@ -101,10 +111,10 @@ if __name__ == "__main__":
     ice_servers = [
         RTCIceServer(urls=["stun:stun.l.google.com:19302"]),  # type: ignore
         RTCIceServer(
-            urls=["turn:130.162.176.219:3478"],
+            urls=["turn:130.162.176.219:3478"],  # type: ignore
             username="username",
             credential="password",
-        ),  # type: ignore
+        ),
     ]
     configuration = RTCConfiguration(iceServers=ice_servers)
 

@@ -21,7 +21,6 @@ from aiortc import (
 from computer_vision import process_frame
 from websocket_signaling import WebSocketSignaling
 
-
 from lidar_node import run_lidar_node
 import threading
 
@@ -36,6 +35,7 @@ TURN_SERVER_URI = "turn:132.145.67.221:3478"
 DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta" or "mp4"
 
 MP4_SOURCE = "test_video.mp4"
+DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
 
 
 COMP_VIS_MODE = False  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
@@ -138,58 +138,92 @@ class VideoCameraTrack(MediaStreamTrack):
         return pts, time_base
 
     def __del__(self):
-        cv2.destroyWindow(self.window_name)
+        if hasattr(self, "cap"):
+            self.cap.release()
+        if hasattr(self, "window_name"):
+            cv2.destroyWindow(self.window_name)
 
 
 async def run(
-    pc: RTCPeerConnection,
+    pc_configuration: RTCConfiguration,
     signaling: WebSocketSignaling,
     disable_video: bool,
     disable_lidar: bool,
     input_device: str = DEFAULT_VIDEO_SOURCE,
 ) -> None:
+    pc: RTCPeerConnection = RTCPeerConnection(configuration=pc_configuration)
     await signaling.connect()
 
-    @pc.on("iceconnectionstatechange")
-    async def on_iceconnectionstatechange() -> None:
-        logging.info(f"ICE connection state changed to: {pc.iceConnectionState}")
-        if pc.iceConnectionState == "failed":
-            logging.error("ICE connection failed")
-            await pc.close()
-            await signaling.close()
-        elif pc.iceConnectionState == "disconnected":
-            logging.warning("ICE connection disconnected")
-        elif pc.iceConnectionState == "connected":
-            logging.info("ICE connection established successfully")
+    local_video = None
+    capture = None
 
-    @pc.on("signalingstatechange")
-    async def on_signalingstatechange() -> None:
-        print("Signaling state is", pc.signalingState)
+    async def restart_connection():
+        nonlocal pc, local_video
+        logging.info("Restarting WebRTC connection...")
 
-    @pc.on("icecandidate")
-    async def on_icecandidate(candidate: RTCIceCandidate) -> None:
-        # Called when this client gathers a new ICE candidate (from STUN/TURN)
-        if candidate is not None:
-            logging.debug(f"New transmitter ICE candidate: {candidate}")
-            await signaling.send(
-                {
-                    "type": "candidate",
-                    "component": candidate.component,
-                    "foundation": candidate.foundation,
-                    "ip": candidate.ip,
-                    "port": candidate.port,
-                    "priority": candidate.priority,
-                    "protocol": candidate.protocol,
-                    "candidateType": candidate.type,
-                    "relatedAddress": candidate.relatedAddress,
-                    "relatedPort": candidate.relatedPort,
-                    "sdpMid": candidate.sdpMid,
-                    "sdpMLineIndex": candidate.sdpMLineIndex,
-                    "tcpType": candidate.tcpType,
-                }
-            )
-        else:
-            logging.debug("ICE candidate gathering complete")
+        # Clean up existing connection
+        await pc.close()
+
+        # Create a new peer connection with the same configuration
+        pc = RTCPeerConnection(configuration=pc_configuration)
+
+        # Set up event handlers for the new connection
+        setup_event_handlers()
+
+        # Re-add the video track to the new connection
+        if local_video:
+            pc.addTrack(local_video)
+
+        # Create and send a new offer
+        offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        await signaling.send(pc.localDescription)
+
+        logging.info("Connection restarted - sent new SDP offer to signaling server")
+
+    def setup_event_handlers():
+        @pc.on("iceconnectionstatechange")
+        async def on_iceconnectionstatechange() -> None:
+            logging.info(f"ICE connection state changed to: {pc.iceConnectionState}")
+            if pc.iceConnectionState == "failed":
+                logging.error("ICE connection failed")
+                await pc.close()
+            elif pc.iceConnectionState == "disconnected":
+                logging.warning("ICE connection disconnected")
+            elif pc.iceConnectionState == "connected":
+                logging.info("ICE connection established successfully")
+
+        @pc.on("signalingstatechange")
+        async def on_signalingstatechange() -> None:
+            print("Signaling state is", pc.signalingState)
+
+        @pc.on("icecandidate")
+        async def on_icecandidate(candidate: RTCIceCandidate) -> None:
+            # Called when this client gathers a new ICE candidate (from STUN/TURN)
+            if candidate is not None:
+                logging.debug(f"New transmitter ICE candidate: {candidate}")
+                await signaling.send(
+                    {
+                        "type": "candidate",
+                        "component": candidate.component,
+                        "foundation": candidate.foundation,
+                        "ip": candidate.ip,
+                        "port": candidate.port,
+                        "priority": candidate.priority,
+                        "protocol": candidate.protocol,
+                        "candidateType": candidate.type,
+                        "relatedAddress": candidate.relatedAddress,
+                        "relatedPort": candidate.relatedPort,
+                        "sdpMid": candidate.sdpMid,
+                        "sdpMLineIndex": candidate.sdpMLineIndex,
+                        "tcpType": candidate.tcpType,
+                    }
+                )
+            else:
+                logging.debug("ICE candidate gathering complete")
+
+    # Set up initial event handlers
+    setup_event_handlers()
 
     try:
         if not disable_video:
@@ -276,54 +310,49 @@ async def run(
         else:
             print("LiDAR data disabled")
 
-        # Create and send offer
+        # Initial offer
         offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
         await signaling.send(pc.localDescription)
 
         logging.info("Sent SDP offer to signaling server")
 
-        # Wait for the remote answer from receiver
-        remote_msg = await signaling.receive()
-        if (
-            isinstance(remote_msg, RTCSessionDescription)
-            and remote_msg.type == "answer"
-        ):
-            logging.info("Received SDP answer from receiver")
-            await pc.setRemoteDescription(remote_msg)
-        else:
-            logging.warning(
-                "Expected SDP answer from receiver, but received:", remote_msg
-            )
-
-        # Keep the connection alive so video continues streaming
+        # Main message loop
         while True:
             try:
                 msg = await signaling.receive()
-                # Handle new ICE candidates from receiver post-handshake
+
+                # Handle restart message
+                if isinstance(msg, dict) and msg.get("type") == "restart":
+                    logging.info(f"Received restart request: {msg}")
+                    # Only restart if the request comes from a receiver
+                    if msg.get("clientType") == "receiver":
+                        await restart_connection()
+                        continue
+
+                # Handle SDP messages
                 if isinstance(msg, RTCSessionDescription):
-                    logging.info(f"Received SDP {msg.type}: {msg}")
+                    logging.info(f"Received SDP {msg.type}")
                     await pc.setRemoteDescription(msg)
-                elif isinstance(msg, dict):
-                    if msg.get("type") == "candidate":
-                        logging.info(f"Received ICE candidate: {msg}")
-                        # Directly add the candidate dictionary
-                        candidate = RTCIceCandidate(
-                            # TODO: decompose receiver Candidate format into RTCIceCandidate
-                            component=msg["component"],
-                            foundation=msg["foundation"],
-                            ip=msg["ip"],
-                            port=msg["port"],
-                            priority=msg["priority"],
-                            protocol=msg["protocol"],
-                            type=msg["candidateType"],
-                            relatedAddress=msg.get("relatedAddress"),
-                            relatedPort=msg.get("relatedPort"),
-                            sdpMid=msg["sdpMid"],
-                            sdpMLineIndex=msg["sdpMLineIndex"],
-                            tcpType=msg.get("tcpType"),
-                        )
-                        await pc.addIceCandidate(candidate)
+
+                # Handle ICE candidates
+                elif isinstance(msg, dict) and msg.get("type") == "candidate":
+                    logging.info(f"Received ICE candidate: {msg}")
+                    candidate = RTCIceCandidate(
+                        component=msg["component"],
+                        foundation=msg["foundation"],
+                        ip=msg["ip"],
+                        port=msg["port"],
+                        priority=msg["priority"],
+                        protocol=msg["protocol"],
+                        type=msg["candidateType"],
+                        relatedAddress=msg.get("relatedAddress"),
+                        relatedPort=msg.get("relatedPort"),
+                        sdpMid=msg["sdpMid"],
+                        sdpMLineIndex=msg["sdpMLineIndex"],
+                        tcpType=msg.get("tcpType"),
+                    )
+                    await pc.addIceCandidate(candidate)
                 else:
                     logging.warning(
                         f"Received unexpected message: {msg} of type: {type(msg)}"
@@ -336,6 +365,8 @@ async def run(
         logging.exception(f"Error: {e}")
     finally:
         cv2.destroyAllWindows()
+        if capture:
+            capture.release()
         await pc.close()
         await signaling.close()
 
@@ -379,16 +410,17 @@ if __name__ == "__main__":
     ]
     configuration = RTCConfiguration(iceServers=ice_servers)
 
-    pc = RTCPeerConnection(configuration=configuration)
+    # pc = RTCPeerConnection(configuration=configuration)
     signaling = WebSocketSignaling(uri=WEBSOCKET_SIGNALLING_URI)
 
     try:
         asyncio.get_event_loop().run_until_complete(
             run(
-                pc=pc,
+                pc_configuration=configuration,
                 signaling=signaling,
                 disable_video=args.disable_video,
                 disable_lidar=args.disable_lidar,
+                signaling=signaling,
                 input_device=args.device,
             )
         )
