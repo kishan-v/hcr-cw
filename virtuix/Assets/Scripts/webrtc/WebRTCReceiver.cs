@@ -9,8 +9,8 @@ using NativeWebSocket;
 
 public class WebRTCReceiver : MonoBehaviour
 {
-    // [SerializeField] private string signallingServerUrl = "ws://130.162.176.219:8765";
-    [SerializeField] private string signallingServerUrl = "ws://132.145.67.221:8765";  // TODO: Add signaling server URL
+    [SerializeField] private string signallingServerUrl = "ws://130.162.176.219:8765";
+    // [SerializeField] private string signallingServerUrl = "ws://132.145.67.221:8765";  // TODO: Add signaling server URL
     [SerializeField] private LidarProcessor lidarProcessor;
 
     private WebSocket websocket;
