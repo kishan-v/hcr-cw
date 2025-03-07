@@ -19,7 +19,12 @@ public class TeleopOmniCommunication : MonoBehaviour
     public float movementThreshold = 0.05f;
     public float movementMultiplier = 10;
     private int noStepCount = 0;
-    public int noStepThreshold = 3;
+    public int noStepStartThreshold = 3;
+    public int noStepStopThreshold = 6;
+
+    public double speedLimit = 0.4;
+    //private Vector3 movementLimit = new Vector3(speedLimit, speedLimit, speedLimit);
+    public int steps = 5;
 
     private float previousRotation = 0;
     public float rotationThreshold = 0.2f;
@@ -30,6 +35,9 @@ public class TeleopOmniCommunication : MonoBehaviour
 
     // concurrent queue to store messages
     private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
+
+    // Debug
+    public Vector3 movement;
 
 
     void Start()
@@ -108,6 +116,7 @@ public class TeleopOmniCommunication : MonoBehaviour
 
     void Update()
     {
+        // LIDAR
         while (lidarDataQueue.TryDequeue(out string lidarString))
         {
             if (lidarProcessor != null)
@@ -129,18 +138,38 @@ public class TeleopOmniCommunication : MonoBehaviour
             omniMovement.GetOmniInputForCharacterMovement();
 
             // Get movement
-            Vector3 movement = omniMovement.GetForwardMovement() + omniMovement.GetStrafeMovement();
-            movement *= movementMultiplier;
+            movement = omniMovement.GetForwardMovement(); // + omniMovement.GetStrafeMovement();
+            //Debug.Log(omniMovement.GetForwardMovement());
+            //Debug.Log(omniMovement.GetStrafeMovement());
 
-            if (movement.magnitude > movementThreshold) {
+
+            if (movement.x < movementThreshold) {
                 noStepCount = 0;
+                movement = new Vector3((float)-0.8,(float)0.0,(float)0.0);
+                //double steppedLinear = Math.Round(movement.x * steps) / steps;
+                //steppedLinear = Max(steppedLinear, speedLimit);
+                //movement = new Vector3((float)steppedLinear, 0, 0);
             }
             else {
                 noStepCount += 1;
+                if (noStepStartThreshold < noStepCount && noStepCount < noStepStopThreshold)
+                {
+                    movement = new Vector3((float)0.0, (float)0.0, (float)0.0);
+                }
+                else
+                {
+                    return;
+                }
             }
-            
+
+            // Apply movement multiplier
+            movement *= movementMultiplier;
+            // TODO: move speed limit after multip-lier
+            //movement = Vector3.Min(movement, movementLimit);
+
             // Get rotation
             float radiansRotation = degToRad(omniMovement.currentOmniYaw);
+            // Don't update rotation if it's below the threshold
             if (Math.Abs((float)radiansRotation - previousRotation) > rotationThreshold) {
                 rotateFlag = true;
                 previousRotation = radiansRotation;
@@ -150,19 +179,21 @@ public class TeleopOmniCommunication : MonoBehaviour
                 radiansRotation = previousRotation;
             }
 
+            //Debug.Log("Movement in the x after filtering " + movement.x);
             // Send message to dog
-            if (rotateFlag || (noStepCount < noStepThreshold))
+            if (rotateFlag || (noStepCount < noStepStopThreshold))
             {
                 // Build the command payload.
                 var command = new
                 {
                     op = "command",
                     topic = "teleop/cmd_vel",
+                    type = "omni",
                     msg = new
                     {
                         // In this protocol, we assume the linear motion is along the x-axis.
                         // Adjust the mapping as needed (e.g. swap axes) to suit your application.
-                        linear = new { x = movement.x, y = movement.y, z = movement.z },
+                        linear = new { x = -movement.x, y = 0.0, z = 0.0 },
                         angular = new { x = 0.0, y = 0.0, z = -radiansRotation },
                         timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                     }
