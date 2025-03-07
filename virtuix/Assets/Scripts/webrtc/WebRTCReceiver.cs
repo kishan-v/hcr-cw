@@ -173,6 +173,7 @@ public class WebRTCReceiver : MonoBehaviour
     {
         try
         {
+            
             string message = System.Text.Encoding.UTF8.GetString(data);
             Debug.Log("Received LiDAR data: " + message);
             if (lidarProcessor != null)
@@ -180,11 +181,10 @@ public class WebRTCReceiver : MonoBehaviour
                 try
                 {
                     lidarMessageQueue.Enqueue(message);
-
                 }
                 catch (Exception ex)
                 {
-                    Debug.Log("Error in lidar process ");
+                    Debug.Log("Error in adding lidar data to the queue " + ex);
                 }
             }
             else
@@ -194,7 +194,7 @@ public class WebRTCReceiver : MonoBehaviour
         }
         catch (Exception ex)
         {
-            Debug.Log("Exception in the lidar processing " + ex);
+            Debug.Log("Exception in OnLidarMessage " + ex);
         }
     }
 
@@ -392,7 +392,14 @@ public class WebRTCReceiver : MonoBehaviour
         {
             if (lidarProcessor != null)
             {
-                lidarProcessor.ProcessLidarData(lidarString);
+                try
+                {
+                    lidarProcessor.ProcessLidarData(lidarString);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("Error in processing LiDAR Data " + ex)
+                }
             }
             else
             {
