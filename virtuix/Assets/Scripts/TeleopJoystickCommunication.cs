@@ -37,7 +37,7 @@ public class TeleopJoystickCommunication : MonoBehaviour
 
         ws.OnMessage += (sender, e) =>
         {
-            Debug.Log("Received reply: " + e.Data);
+            //Debug.Log("Received reply: " + e.Data);
         };
 
         ws.OnError += (sender, e) =>
