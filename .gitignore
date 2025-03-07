@@ -220,3 +220,4 @@ virtuix/Assets/ThirdPartyPlugins/
 # Ignore Unity’s Collaborate metadata
 virtuix/.Collab/
 
+tmux/logs
