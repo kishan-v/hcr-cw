@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root (using sudo)"
+  exit 1
+fi
+
 # Find repository root directory
 REPO_DIR=$(git rev-parse --show-toplevel)
 cd "$REPO_DIR" || { echo "Failed to change to repository directory"; exit 1; }
@@ -11,7 +16,9 @@ echo "Working from repository: $REPO_DIR"
 # Remember to run `chmod +x <script_name>.sh` to make the scripts executable
 SCRIPTS=(
     "$REPO_DIR/tmux/scripts/start_video_transmitter.sh"
-    "$REPO_DIR/tmux/scripts/script2.sh"
+    "$REPO_DIR/tmux/scripts/start_websocket.sh"
+    "$REPO_DIR/tmux/scripts/start_virtuix_controller.sh"
+    "$REPO_DIR/tmux/scripts/start_joystick_controller.sh"
     "$REPO_DIR/tmux/scripts/script3.sh"
     "$REPO_DIR/tmux/scripts/script4.sh"
 )
