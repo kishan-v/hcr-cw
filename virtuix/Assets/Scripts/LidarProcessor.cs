@@ -16,16 +16,26 @@ public class LidarProcessor : MonoBehaviour
     public GameObject boxPrefab;
     private List<GameObject> boxes = new List<GameObject>();
 
-    static private List<int> FindTrueIndices(bool[] boolArray)
+    static private List<int> FindTrueIndices(byte[] data)
     {
         List<int> trueIndices = new List<int>();
-        for (int i = 0; i < boolArray.Length; i++)
+
+        /* We are sending all the header information (depth, width, height
+         * etc) even though we are apparently hardcoding all of them. We
+         * can't create a copy of the whole array otherwise this would be
+         * expensive, so we just skip the first 20 bytes. Yes. */
+        int headerSize = 20;
+        for (int i = headerSize; i < data.Length; i++)
         {
-            if (boolArray[i])
+            for (int j = 0; i < 8; i++) 
             {
-                trueIndices.Add(i);
+               // Extract a bit and shift along
+               // remember this is big-endian!!
+               bool bit = (b & (1 << j)) != 0;
+               // Multiply byte index (i) by 8, then add bit index (j)
+               if (bit) trueIndices.Add((i - headerSize)*8 + j))
             }
-        }
+        } 
         return trueIndices;
     }
 
@@ -40,20 +50,16 @@ public class LidarProcessor : MonoBehaviour
 
         stopwatch.Stop();
 
-
-
         System.TimeSpan ts = stopwatch.Elapsed;
         string elapsedTime = string.Format("{0:00}:{1:00}:{2:00}.{3:000}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds);
         //Debug.Log("Function Execution Time: " + elapsedTime);
         //Debug.Log("Successfully deserialised the json");
-
     }
 
 
-    static private List<Vector3> decompressData(ref string json) {
+    static private List<Vector3> decompressData(byte[] data) {
         // extract data
-        List<bool> boolList = ExtractBoolArray(ref json);
-        List<int> trueIndices = FindTrueIndices(boolList.ToArray()); // Convert list to array
+        List<int> trueIndices = FindTrueIndices(byte[] data); // Convert list to array
 
         // No move semantics in C# !! Very expensive copy into a native array
         NativeArray<float4> indices = new NativeArray<float4>(trueIndices.Count, Allocator.Persistent);
@@ -99,7 +105,7 @@ public class LidarProcessor : MonoBehaviour
 
         public void Execute()
         {
-
+            // Okay so hard-coded width, depth, height and step_size!
             // set up constants
             const float x_area = (float) (4.0 * (1.0 / 0.1));
             const float y_area = (float) ((float) 4.0 * (1.0 / 0.1)) * x_area;
@@ -131,24 +137,6 @@ public class LidarProcessor : MonoBehaviour
             }
 
         }
-    }
-
-
-    static private List<bool> ExtractBoolArray(ref string json)
-    {
-        var boolList = new List<bool>();
-
-        using (JsonDocument doc = JsonDocument.Parse(json))
-        {
-            if(doc.RootElement.TryGetProperty("box_vals", out JsonElement element) && element.ValueKind == JsonValueKind.Array) {
-                foreach (JsonElement item in element.EnumerateArray())
-                {
-                    boolList.Add(item.GetBoolean());
-                }
-            }
-        }
-
-        return boolList;
     }
 
     private void DrawBoxes3(List<Vector3> positions)

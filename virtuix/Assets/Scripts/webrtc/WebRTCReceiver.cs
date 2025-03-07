@@ -170,13 +170,14 @@ public class WebRTCReceiver : MonoBehaviour
     {
         try
         {
-            string message = System.Text.Encoding.UTF8.GetString(data);
-            Debug.Log("Received LiDAR data: " + message);
+            // string message = System.Text.Encoding.UTF8.GetString(data);
+            // Debug.Log("Received LiDAR data! " + message);
             if (lidarProcessor != null)
             {
                 try
                 {
-                    lidarProcessor.ProcessLidarData(message);
+                    // Parse the data directly in byte form
+                    lidarProcessor.ProcessLidarData(data);
 
                 }
                 catch(Exception ex)
