@@ -23,6 +23,8 @@ public class WebRTCReceiver : MonoBehaviour
     private float lastFrameLogTime = 0;
     private const float FRAME_LOG_INTERVAL = 1.0f; // Log every second
 
+    private ConcurrentQueue<string> lidarMessageQueue = new ConcurrentQueue<string>();
+
     [Serializable]
     public class SignalingMessage
     {
@@ -74,7 +76,7 @@ public class WebRTCReceiver : MonoBehaviour
         {
             iceServers = new[] {
                 new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } },
-                new RTCIceServer { 
+                new RTCIceServer {
                    urls = new string[] { "turn:130.162.176.219:3478?transport=udp", "turn:130.162.176.219:3478?transport=tcp" },
                    username = "username",
                    credential = "password"
@@ -87,13 +89,13 @@ public class WebRTCReceiver : MonoBehaviour
         // Setup video transceiver
         var transceiverInit = new RTCRtpTransceiverInit { direction = RTCRtpTransceiverDirection.RecvOnly };
         var transceiver = peerConnection.AddTransceiver(TrackKind.Video, transceiverInit);
-        
+
         // Get all available video codecs
         var codecs = RTCRtpSender.GetCapabilities(TrackKind.Video).codecs;
-        
+
         // Filter codecs
         var h264Codecs = codecs.Where(codec => codec.mimeType == "video/H264");
-        
+
         var error = transceiver.SetCodecPreferences(h264Codecs.ToArray());
         if (error != RTCErrorType.None)
             Debug.LogError("SetCodecPreferences failed");
@@ -176,10 +178,10 @@ public class WebRTCReceiver : MonoBehaviour
             {
                 try
                 {
-                    lidarProcessor.ProcessLidarData(message);
+                    lidarMessageQueue.Enqueue(message);
 
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     Debug.Log("Error in lidar process ");
                 }
@@ -189,7 +191,7 @@ public class WebRTCReceiver : MonoBehaviour
                 Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
             }
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             Debug.Log("Exception in the lidar processing " + ex);
         }
@@ -205,11 +207,11 @@ public class WebRTCReceiver : MonoBehaviour
         websocket.OnError += HandleWebSocketError;
         websocket.OnClose += HandleWebSocketClose;
 
-        websocket.OnOpen += async () => 
+        websocket.OnOpen += async () =>
         {
             Debug.Log("WebSocket connection opened!");
             Debug.Log($"WebSocket State: {websocket.State}");
-            
+
             // Send restart message to all connected transmitters
             RestartMessage restartMessage = new RestartMessage();
             string json = JsonUtility.ToJson(restartMessage);
@@ -383,5 +385,19 @@ public class WebRTCReceiver : MonoBehaviour
             Debug.LogWarning("WebSocket is null");
         }
 #endif
+
+        int messagesToProcess = 5; // adjust this number as needed
+        while (messagesToProcess > 0 && lidarMessageQueue.TryDequeue(out string lidarString))
+        {
+            if (lidarProcessor != null)
+            {
+                lidarProcessor.ProcessLidarData(lidarString);
+            }
+            else
+            {
+                Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
+            }
+            messagesToProcess--;
+        }
     }
 }
