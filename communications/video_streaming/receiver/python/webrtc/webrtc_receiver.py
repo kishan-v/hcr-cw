@@ -17,6 +17,16 @@ async def run(pc, signaling):
     # Connect to signaling server
     await signaling.connect()
 
+    # Send restart command to transmitter
+    print("Sending restart command to transmitter...")
+    restart_message = {
+        "type": "restart",
+        "clientType": "receiver",
+        "message": "Receiver requesting connection restart"
+    }
+    await signaling.send(restart_message)
+    print("Restart command sent")
+
     # Add video transceiver
     pc.addTransceiver("video", direction="recvonly")
 
@@ -89,12 +99,16 @@ if __name__ == "__main__":
 
     ice_servers = [
         RTCIceServer(urls=["stun:stun.l.google.com:19302"]),  # type: ignore
-        RTCIceServer(urls=["turn:130.162.176.219:3478"], username="username", credential="password"),  # type: ignore
+        RTCIceServer(
+            urls=["turn:130.162.176.219:3478"],  # type: ignore
+            username="username",
+            credential="password",
+        ),
     ]
     configuration = RTCConfiguration(iceServers=ice_servers)
 
     pc = RTCPeerConnection(configuration)
-    signaling = WebSocketSignaling("ws://130.162.176.219:8765")  # TODO:
+    signaling = WebSocketSignaling("ws://130.162.176.219:8765")
 
     try:
         asyncio.get_event_loop().run_until_complete(run(pc, signaling))
