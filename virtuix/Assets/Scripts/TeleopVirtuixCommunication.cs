@@ -4,6 +4,8 @@ using System;
 using WebSocketSharp;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
+using Unity.XR.CoreUtils;
+using System.Runtime.Remoting.Messaging;
 
 public class TeleopOmniCommunication : MonoBehaviour
 {
@@ -18,13 +20,13 @@ public class TeleopOmniCommunication : MonoBehaviour
     // A threshold below which we treat movement as zero (to filter out noise).
     public float movementThreshold = 0.05f;
     public float movementMultiplier = 10;
+    private Vector3 previousMovement = new(0, 0, 0);
+    public Vector3 movement = new(0, 0, 0); // Debug
     private int noStepCount = 0;
-    public int noStepStartThreshold = 3;
-    public int noStepStopThreshold = 6;
+    public int noStepThreshold = 3;
 
     public double speedLimit = 0.4;
-    //private Vector3 movementLimit = new Vector3(speedLimit, speedLimit, speedLimit);
-    public int steps = 5;
+    private int steps = 5;
 
     private float previousRotation = 0;
     public float rotationThreshold = 0.2f;
@@ -35,10 +37,6 @@ public class TeleopOmniCommunication : MonoBehaviour
 
     // concurrent queue to store messages
     private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
-
-    // Debug
-    public Vector3 movement;
-
 
     void Start()
     {
@@ -112,7 +110,33 @@ public class TeleopOmniCommunication : MonoBehaviour
         return (float)Math.IEEERemainder(radians, 2 * Math.PI);
     }
 
-    
+    private Vector3 multiplier = new Vector3(5, 5, 5);
+    private Vector3 divisor = new Vector3(1/5, 1/5, 1/5);
+    private Vector3 speedLimitVec = new Vector3(2/8, 2/8, 2/8);
+
+    Vector3 StepVector(Vector3 vec)
+    {
+        // Scale
+        vec = Vector3.Scale(vec, multiplier);
+
+        // Round
+        vec.x = (float)Math.Round(vec.x);
+        vec.y = (float)Math.Round(vec.y);
+        vec.z = (float)Math.Round(vec.z);
+
+        // Divide
+        vec = Vector3.Scale(vec, divisor);
+
+        // Apply movement multiplier
+        //vec = Vector3.Scale(vec, )
+
+        // Apply speed limit
+        vec = Vector3.Max(vec, speedLimitVec);
+
+        return vec;
+    }
+
+
 
     void Update()
     {
@@ -138,27 +162,20 @@ public class TeleopOmniCommunication : MonoBehaviour
             omniMovement.GetOmniInputForCharacterMovement();
 
             // Get movement
-            movement = omniMovement.GetForwardMovement(); // + omniMovement.GetStrafeMovement();
-            //Debug.Log(omniMovement.GetForwardMovement());
-            //Debug.Log(omniMovement.GetStrafeMovement());
-
+            movement = omniMovement.GetForwardMovement() + omniMovement.GetStrafeMovement();
 
             if (movement.x < movementThreshold) {
                 noStepCount = 0;
-                movement = new Vector3((float)-0.8,(float)0.0,(float)0.0);
-                //double steppedLinear = Math.Round(movement.x * steps) / steps;
-                //steppedLinear = Max(steppedLinear, speedLimit);
+                movement = new Vector3((float)-0.4,(float)0.0,(float)0.0);
+                //double steppedLinear = Math.Round(debugMovement.Multiply(Vector3.(steps,steps,steps))) / steps;
+                //steppedLinear = Vector3.Max(steppedLinear, speedLimit);
                 //movement = new Vector3((float)steppedLinear, 0, 0);
             }
             else {
                 noStepCount += 1;
-                if (noStepStartThreshold < noStepCount && noStepCount < noStepStopThreshold)
+                if (noStepCount > noStepThreshold)
                 {
                     movement = new Vector3((float)0.0, (float)0.0, (float)0.0);
-                }
-                else
-                {
-                    return;
                 }
             }
 
@@ -181,7 +198,7 @@ public class TeleopOmniCommunication : MonoBehaviour
 
             //Debug.Log("Movement in the x after filtering " + movement.x);
             // Send message to dog
-            if (rotateFlag || (noStepCount < noStepStopThreshold))
+            if (rotateFlag || (movement != previousMovement))
             {
                 // Build the command payload.
                 var command = new
@@ -210,6 +227,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                     Debug.LogError("Error sending message: " + ex.Message);
                 }
             }
+            previousMovement = movement;
         }
     }
 
