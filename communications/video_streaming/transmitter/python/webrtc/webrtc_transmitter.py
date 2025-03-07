@@ -21,8 +21,6 @@ from aiortc import (
 from computer_vision import process_frame
 from websocket_signaling import WebSocketSignaling
 
-from lidar_node import run_lidar_node
-import threading
 
 # Kish's Oracle Server
 WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
@@ -289,6 +287,9 @@ async def run(
             print("Video streaming Disabled")
 
         if not disable_lidar:
+            from lidar_node import run_lidar_node
+            import threading
+
 
             # Create a data channel for LiDAR data.
             lidar_channel = pc.createDataChannel(
