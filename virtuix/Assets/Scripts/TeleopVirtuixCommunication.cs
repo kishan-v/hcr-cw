@@ -34,10 +34,10 @@ public class TeleopOmniCommunication : MonoBehaviour
     private bool rotateFlag = true;
 
     [SerializeField]
-    private LidarProcessor lidarProcessor;
+    //private LidarProcessor lidarProcessor;
 
     // concurrent queue to store messages
-    private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
+    //private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
 
     void Start()
     {
@@ -50,10 +50,10 @@ public class TeleopOmniCommunication : MonoBehaviour
             Debug.LogError("OmniMovementComponent not found!");
         }
 
-        if (lidarProcessor == null)
-        {
-            Debug.LogError("LidarProcessor not found!");
-        }
+        //if (lidarProcessor == null)
+        //{
+        //    Debug.LogError("LidarProcessor not found!");
+        //}
     }
 
     void ConnectWebSocket()
@@ -75,7 +75,7 @@ public class TeleopOmniCommunication : MonoBehaviour
             //    Debug.Log("Enqueuing LiDAR message.");
             //    lidarDataQueue.Enqueue(e.Data);
             //}
-            lidarDataQueue.Enqueue(e.Data);
+            //lidarDataQueue.Enqueue(e.Data);
         };
 
         ws.OnError += (sender, e) =>
@@ -142,17 +142,17 @@ public class TeleopOmniCommunication : MonoBehaviour
     void Update()
     {
         // LIDAR
-        while (lidarDataQueue.TryDequeue(out string lidarString))
-        {
-            if (lidarProcessor != null)
-            {
-                lidarProcessor.ProcessLidarData(lidarString);
-            }
-            else
-            {
-                Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
-            }
-        }
+        //while (lidarDataQueue.TryDequeue(out string lidarString))
+        //{
+        //    if (lidarProcessor != null)
+        //    {
+        //        lidarProcessor.ProcessLidarData(lidarString);
+        //    }
+        //    else
+        //    {
+        //        Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
+        //    }
+        //}
 
         if (ws == null || !ws.IsAlive)
             return;

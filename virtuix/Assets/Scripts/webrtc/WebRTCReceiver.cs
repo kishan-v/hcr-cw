@@ -134,6 +134,8 @@ public class WebRTCReceiver : MonoBehaviour
             if (channel.Label == "lidar")
             {
                 channel.OnMessage = OnLidarMessage;
+                channel.OnClose = () => Debug.Log("Data Channel closed");
+                channel.OnError = (error) => Debug.LogError("Data channel error " + error);
             }
         };
 
@@ -166,15 +168,30 @@ public class WebRTCReceiver : MonoBehaviour
 
     private void OnLidarMessage(byte[] data)
     {
-        string message = System.Text.Encoding.UTF8.GetString(data);
-        Debug.Log("Received LiDAR data: " + message);
-        if (lidarProcessor != null)
+        try
         {
-            lidarProcessor.ProcessLidarData(message);
+            string message = System.Text.Encoding.UTF8.GetString(data);
+            Debug.Log("Received LiDAR data: " + message);
+            if (lidarProcessor != null)
+            {
+                try
+                {
+                    lidarProcessor.ProcessLidarData(message);
+
+                }
+                catch(Exception ex)
+                {
+                    Debug.Log("Error in lidar process ");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
+            }
         }
-        else
+        catch(Exception ex)
         {
-            Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
+            Debug.Log("Exception in the lidar processing " + ex);
         }
     }
 
