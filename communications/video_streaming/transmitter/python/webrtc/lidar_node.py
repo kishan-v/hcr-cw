@@ -1,5 +1,6 @@
 import json
 import rclpy
+from lidar_packer import pack_lidar
 from rclpy.node import Node
 from std_msgs.msg import String  # Using String for your fake data example
 
@@ -19,8 +20,10 @@ class LidarNode(Node):
         self.get_logger().info("LiDAR node initialized.")
 
     def lidar_callback(self, msg):
-        # Use the message data directly (assuming it's already a JSON string)
-        data = msg.data
+        # do NOT use the message data directly (assuming it's already a JSON string)
+        # Convert to bitpacked struct
+        data = pack_lidar(msg.data)
+
         self.counter += 1
         if (
             self.counter >= 10
