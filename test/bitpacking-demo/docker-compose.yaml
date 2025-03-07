@@ -1,0 +1,26 @@
+version: '3'
+
+services:
+  receiver:
+    build:
+      context: ./csharp
+      dockerfile: Dockerfile
+    container_name: bitpacking-receiver
+    ports:
+      - "8888:8888"
+    networks:
+      - bitpacking-network
+
+  sender:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    container_name: bitpacking-sender
+    depends_on:
+      - receiver
+    networks:
+      - bitpacking-network
+
+networks:
+  bitpacking-network:
+    driver: bridge
