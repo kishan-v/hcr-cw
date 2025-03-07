@@ -37,6 +37,9 @@ class WebSocketSignaling:
         elif msg_type in ["offer", "answer", "pranswer", "rollback"]:
             # Return an RTCSessionDescription for valid SDP types
             return RTCSessionDescription(sdp=data["sdp"], type=msg_type)
+        elif msg_type == "restart":
+            # Return a restart message
+            return {"type": "restart", "clientType": data.get("clientType"), "message": data.get("message")}
         else:
             # Raise an error (or ignore) if we get an unexpected type
             raise ValueError(f"Unexpected message type: {msg_type}")
