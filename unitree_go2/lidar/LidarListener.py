@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
-from std_msgs.msg import String 
+from std_msgs.msg import String
 from nav_msgs.msg import Odometry
 
 import numpy as np
@@ -20,21 +20,9 @@ import json
 
 from abc import abstractmethod
 
-# 5m x 5 x 2 = 50m^3
-# 0.1 * 0.1 * 0.1 = 0.001
-# total number of cubes -> 125000
-# 1 bit per item in the array
-# 50000bits -> 50000/8000 = 6.25kb per box 
+## Helper functions ##
 
-# formula for compressing box:
-#   amount per row = width / size
-#   amount per col = depth / size
-#   amount per height = height / size
-#   row_offset = x / step_size
-#   col_offset = (y / step_size) * amount_per_row
-#   height_offset = (z / step_size) * (amount_per_col * amount_per_height)
-# idx = height_offset + col_offset + row_offset
-
+''' Serialise data to an occupancy grid '''
 def serialise_occupancy_grid(data, step_size=0.10)->str:
     json_data = {
         "world_dims": {
@@ -50,11 +38,54 @@ def serialise_occupancy_grid(data, step_size=0.10)->str:
     return json.dumps(json_data)
 
 
+''' Test Data Recovery (from occupancy grid) '''
+def test_data_recovery(data):
+    data = json.loads(data)
+
+    x_area = data["world_dims"]["width"] * (1 / data["world_dims"]["step_size"])
+    y_area = data["world_dims"]["depth"] * (1 / data["world_dims"]["step_size"])
+
+    y_area *= x_area
+
+    step_size = data["world_dims"]["step_size"]
+
+    compressed_data = np.array(data["box_vals"])
+
+    indices = np.where(compressed_data)[0]
+
+    # reverse the calculation
+    z = np.floor(indices / y_area)
+    y = np.floor((indices % y_area) / x_area)
+    x = np.floor((indices % y_area) % x_area)
+
+    x *= data["world_dims"]["step_size"]
+    y *= data["world_dims"]["step_size"]
+    z *= data["world_dims"]["step_size"]
+
+    x -= data["world_dims"]["width"] / 2
+    y -= data["world_dims"]["depth"] / 2
+    z -= data["world_dims"]["height"] / 2
+
+    return np.array([x, y, z])
+
+# formula for compressing box:
+#   amount per row = width / size
+#   amount per col = depth / size
+#   amount per height = height / size
+#   row_offset = x / step_size
+#   col_offset = (y / step_size) * amount_per_row
+#   height_offset = (z / step_size) * (amount_per_col * amount_per_height)
+# idx = height_offset + col_offset + row_offset
+
+
+
+## Data Transforms ##
+
 '''Base Class for Transforms'''
 class PostProcessingTransform:
     def __init__(self, transform_name):
         self.transform_name = transform_name
-    
+
     @abstractmethod
     def apply(self, data, local_data = None):
         pass
@@ -76,7 +107,7 @@ class RemoveOffset(PostProcessingTransform):
 
         self.x_k = np.zeros((1,3))
 
-       
+
     def apply(self, data, local_data = None):
         if self.initialised:
             # calculate avg time
@@ -86,7 +117,7 @@ class RemoveOffset(PostProcessingTransform):
 
             # calculate max radius moved
             max_moved = max(self.sum_time * self.v_max / self.ctr, 1)
-            
+
             # filter everything outside the last radius
             filt = RangeFilter(0, max_moved, 0, max_moved)
             centroid_data = local_data[:, :3] - self.x_k 
@@ -97,12 +128,12 @@ class RemoveOffset(PostProcessingTransform):
 
         # estimate the new centroid
         self.x_k = np.median(centroid_data[:, :3], axis=0)
-        
-    
+
+
         out = data
         out[:, :3] -= self.x_k 
-        
-        return out 
+
+        return out
 
 
 
@@ -144,45 +175,30 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
         self.num_cols = y_width / step_size
         self.num_heights = z_width / step_size
 
-        self.step_size = step_size 
+        self.step_size = step_size
 
     ''' Convert the cartesian coordinates to grid index '''
     def cartesian_to_grid_idx(self, x, y, z):
-       row_offset = x / self.step_size 
-       col_offset = (y / self.step_size) * self.num_rows
-       height_offset = (z / self.step_size) * (self.num_rows * self.num_cols)
+        row_offset = x / self.step_size
+        col_offset = (y / self.step_size) * self.num_rows
+        height_offset = (z / self.step_size) * (self.num_rows * self.num_cols)
 
-       idx = row_offset + col_offset + height_offset
-        
-       # assert idx <= self.num_rows * self.num_cols * self.num_heights
-
-       return np.asarray(idx, dtype=int)
+        idx = row_offset + col_offset + height_offset
 
 
-    def rounding_policy(self, data, dist):
-         # TODO: investigate if this also works in cartesian space
-         return (data + dist // 2) // dist * dist 
+        return np.asarray(idx, dtype=int)
 
-
-    def apply(self, data, local_data = None):
-        # rounded_data = np.around(data, decimals = 1)
-
-        # downsample by rounding
-        # rounded_data = (data[:, :3] / self.step_size).astype(int)
-        data = data[:, :3]
-        data = self.rounding_policy(data, self.step_size)
-        data = np.unique(data, axis=0)
-
+    def apply(self, data, local_data=None):
         # recenter the data
         data[:, 0] += self.x_width / 2
         data[:, 1] += self.y_width / 2
-        data[:, 2] -= np.min(data[:, 2])#self.z_width / 2
+        data[:, 2] -= np.min(data[:, 2])
 
         idx_arrays = self.cartesian_to_grid_idx(data[:, 0], data[:, 1], data[:, 2])
 
         # # create grid
         grid = np.zeros(int(self.x_width * self.y_width * self.z_width / (self.step_size ** 3)), dtype=bool)
-        
+
         # # populate_grid
         grid[idx_arrays] = True
 
@@ -202,81 +218,27 @@ class RoundData(PostProcessingTransform):
         self.num_cols = y_width / step_size
         self.num_heights = z_width / step_size
 
-        self.step_size = step_size 
-
-    ''' Convert the cartesian coordinates to grid index '''
-    def cartesian_to_grid_idx(self, x, y, z):
-       row_offset = x / self.step_size 
-       col_offset = (y / self.step_size) * self.num_rows
-       height_offset = (z / self.step_size) * (self.num_rows * self.num_cols)
-
-       idx = row_offset + col_offset + height_offset
-        
-       # assert idx <= self.num_rows * self.num_cols * self.num_heights
-
-       return np.asarray(idx, dtype=int)
-
+        self.step_size = step_size
 
     def rounding_policy(self, data, dist):
-         # TODO: investigate if this also works in cartesian space
          return (data + dist // 2) // dist * dist 
 
     def apply(self, data, local_data = None):
-        # rounded_data = np.around(data, decimals = 1)
-
         # downsample by rounding
-        # rounded_data = (data[:, :3] / self.step_size).astype(int)
         data = data[:, :3]
         data = self.rounding_policy(data, self.step_size)
         data = np.unique(data, axis=0)
 
-        # recenter the data
-        # data[:, 0] += self.x_width / 2
-        # data[:, 1] += self.y_width / 2
-        # data[:, 2] += self.z_width / 2
-
-        return data 
+        return data
 
 
-def test_data_recovery(data):
-    data = json.loads(data)
 
-    x_area = data["world_dims"]["width"] * (1 / data["world_dims"]["step_size"])
-    y_area = data["world_dims"]["depth"] * (1 / data["world_dims"]["step_size"])
-
-    y_area *= x_area
-
-    step_size = data["world_dims"]["step_size"]
-
-    compressed_data = np.array(data["box_vals"])
-
-    indices = np.where(compressed_data)[0]
-
-    # reverse the calculation
-    
-    #z = floor(index / z_width)
-    #y = floor((index % z_width) / y_width)
-    #x = (((index % z_width) % y_width) / x_width) (assert its an int)
-
-    z = np.floor(indices / y_area)
-    y = np.floor((indices % y_area) / x_area)
-    x = np.floor((indices % y_area) % x_area)
-
-    x *= data["world_dims"]["step_size"]
-    y *= data["world_dims"]["step_size"]
-    z *= data["world_dims"]["step_size"]
-
-    x -= data["world_dims"]["width"] / 2
-    y -= data["world_dims"]["depth"] / 2
-    z -= data["world_dims"]["height"] / 2
-
-    return np.array([x, y, z])
-
+## Pipeline Class ##
 
 class PostProcessingPipeline:
     def __init__(self):
         self.transforms = []
-    
+
     def add_transform(self, transform):
         assert issubclass(type(transform), PostProcessingTransform)
         self.transforms.append(transform)
@@ -288,14 +250,11 @@ class PostProcessingPipeline:
         return data
 
 
+## LidarProcessor class ##
 
 class LidarProcessor(Node):
     def __init__(self):
         super().__init__("lidar_processor")
-
-        self.last_time = time.time()
-        self.time_diff = 0
-        self.ctr = 0
 
         # subscribe to the topic
         self.pc_subscriber = self.create_subscription(
@@ -310,34 +269,35 @@ class LidarProcessor(Node):
                 self.odom_callback,
                 10
             )
-        
-        self.recovered = np.empty((3, 0))
 
         self.occupancy_pub = self.create_publisher(String, "/occupancy_grid", 10)
 
-        # initialise empty data
+        # initialise class data state (to store between updates)
         self.data = np.empty((4, 0))
-        self.user_data = np.empty((3, 0))
 
-        # initialise pipeline
+        # store post_processed_data separately for quick debugging
+        self.post_processed_data = np.empty((3, 0))
+
+        # initialise main post-processing pipeline
         self.pipeline = PostProcessingPipeline()
-        self.voxel_pipeline = PostProcessingPipeline()
-        self.round_pipeline = PostProcessingPipeline()
-
-        # self.pipeline.add_transform(RemoveOffset(20 / (60 * 60)))
         self.pipeline.add_transform(RangeFilter(0.2, 2.0, 0.2, 2.0))
 
+        # initialise voxelisation pipeline
+        self.voxel_pipeline = PostProcessingPipeline()
+        self.voxel_pipeline.add_transform(RoundData(4, 4, 2, 0.1))
         self.voxel_pipeline.add_transform(ConvertToOccupancyGrid(4, 4, 2, 0.1))
-        self.round_pipeline.add_transform(RoundData(4, 4, 2, 0.1))
 
-        self.movement = np.zeros((1, 3))
-
+        # data history storage limit
         self.point_limit = 15000
 
+        # occupancy_grid state
         self.occupancy_grid = np.empty((3, 0))
 
+        # lidar offset (relative to the dog's starting position)
         self.offset = np.zeros(3)
-        self.dir = 0
+
+        # dog_rotation (relative to the dog's starting orientation)
+        self.dog_rotation = 0
 
 
     """ process odometry data """
@@ -351,13 +311,11 @@ class LidarProcessor(Node):
         d = np.array([2 * (orientation.x * orientation.z + orientation.y * orientation.w), 2 * (orientation.y * orientation.z - orientation.x * orientation.w), 1 - 2 * (orientation.x **2 + orientation.y **2)])
 
         # theta = np.arccos(dot / norm_d)
-        theta = np.arctan2(d[1] , d[0])
+        self.dog_rotation = np.arctan2(d[1], d[0])
 
 
     """ process lidar data """
     def lidar_callback(self, msg):
-        # self.get_logger().info(f"Received PointCloud2 message with {len(msg.data)} bytes.")
-
         # process lidar data
         self.process_lidar_data(msg.data)
 
@@ -365,7 +323,7 @@ class LidarProcessor(Node):
     def process_lidar_data(self, raw_data):
         # extract points, type fp32
         original_data = np.frombuffer(raw_data, dtype=np.float32)
-        
+
         # reshape the data into [[x, y, z, intensity]]
         original_data = original_data.reshape(-1, 4)
 
@@ -385,19 +343,17 @@ class LidarProcessor(Node):
         usr_data[:, :3] -= self.offset
 
         # apply data processing pipeline
-        self.user_data = self.pipeline.apply(usr_data, original_data).transpose()
-        self.occupancy_grid = self.voxel_pipeline.apply(self.user_data.transpose())
-        self.rounded_data = self.round_pipeline.apply(self.user_data.transpose())
+        self.post_processed_data = self.pipeline.apply(usr_data, original_data).transpose()
+        self.occupancy_grid = self.voxel_pipeline.apply(self.post_processed_data.transpose())
 
-        # publish to topic
+        # publish to occupancy topic (internal)
         ros_msg = String()
         ros_msg.data = serialise_occupancy_grid(self.occupancy_grid.tolist())
-        with open("test_data.txt", "w") as file:
-            file.write(serialise_occupancy_grid(self.occupancy_grid.tolist()))
-        self.recovered = test_data_recovery(ros_msg.data)
         self.occupancy_pub.publish(ros_msg)
 
 
+
+## Data Visualisation Options ##
 
 # live plot data
 def plot_data(node):
@@ -420,9 +376,9 @@ def plot_data(node):
 
     # read from the node
     while rclpy.ok():
-        if node.user_data.shape[1] > 0:
+        if node.post_processed_data.shape[1] > 0:
             # extract data
-            x, y, z = node.recovered
+            x, y, z = test_data_recovery(serialise_occupancy_grid(node.occupancy_grid.tolist()))
 
             # update scatter plot
             sc._offsets3d = (x, y, z)
@@ -432,7 +388,7 @@ def plot_data(node):
 
             # draw the updates
             plt.draw()
-        
+
         plt.pause(0.5)
 
 
@@ -455,8 +411,8 @@ def plot_voxels(node):
     cube_size = 0.1
 
     while rclpy.ok():
-        if node.user_data.shape[1] > 0:
-            x, y, z = node.recovered  
+        if node.post_processed_data.shape[1] > 0:
+            x, y, z = test_data_recovery(serialise_occupancy_grid(node.occupancy_grid.tolist()))
             ax.collections.clear()
 
             # draw a cube
@@ -495,6 +451,9 @@ def print_data(node):
         time.sleep(0.5)
         print(node.data)
 
+
+## Entrypoint ##
+
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(description="CLI for the Lidar Processor")
 
@@ -514,6 +473,9 @@ if __name__ == '__main__':
     if args.print_data and args.plot_data and args.plot_voxels:
         print("Error: either print or plot")
         quit()
+
+    if args.plot_voxels or args.plot_data:
+        matplotlib.use("TkAgg")
 
     if args.print_data:
         print_data(lidar_processor)
