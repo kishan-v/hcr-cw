@@ -8,9 +8,6 @@ import numpy as np
 import matplotlib
 
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.patches as patches
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import threading
@@ -100,6 +97,30 @@ class RemoveKnownOffset(PostProcessingTransform):
         assert "Offset" in extra_params.keys()
 
         return data[:, :3] - extra_params["Offset"]
+
+
+''' Rotate data along the XY Plane '''
+class RemoveAngularOffset(PostProcessingTransform):
+    def __init__(self):
+        super().__init__("RemoveAngularOffset")
+
+    def apply(self, data, extra_params = None):
+        assert "OffsetAngleRadians" in extra_params.keys()
+
+        # rotate back towards the origin (i.e undo the rotation)
+        angle = -extra_params["OffsetAngleRadians"]
+
+        # generate rotation matrix
+        rot_mat = np.array([
+            [np.cos(angle), np.sin(angle)],
+            [-np.sin(angle), np.cos(angle)]
+        ])
+
+        # perform rotation
+        data[:, :2] = data[:, :2] @ rot_mat.T
+
+        return data
+
 
 ''' Find the midpoint of the global data, and center the global map around this'''
 class RemoveOffsetNaive(PostProcessingTransform):
@@ -292,6 +313,7 @@ class LidarProcessor(Node):
         self.pipeline = PostProcessingPipeline()
         self.pipeline.add_transform(RemoveKnownOffset())
         self.pipeline.add_transform(RangeFilter(0.2, 2.0, 0.2, 2.0))
+        # self.pipeline.add_transform(RemoveAngularOffset())
 
         # initialise voxelisation pipeline
         self.voxel_pipeline = PostProcessingPipeline()
@@ -313,7 +335,6 @@ class LidarProcessor(Node):
 
     """ process odometry data """
     def odom_callback(self, msg):
-        # self.get_logger().info(f"Received Odometry message")# with pose: {msg.pose.pose.position} bytes.")
         pos = msg.pose.pose.position
         orientation = msg.pose.pose.orientation
 
@@ -321,8 +342,9 @@ class LidarProcessor(Node):
 
         d = np.array([2 * (orientation.x * orientation.z + orientation.y * orientation.w), 2 * (orientation.y * orientation.z - orientation.x * orientation.w), 1 - 2 * (orientation.x **2 + orientation.y **2)])
 
-        # theta = np.arccos(dot / norm_d)
         self.dog_rotation = np.arctan2(d[1], d[0])
+
+        print(f"Dog Rotation: {self.dog_rotation}")
 
 
     """ process lidar data """
@@ -349,7 +371,10 @@ class LidarProcessor(Node):
             self.data = data
 
         # apply data processing pipeline
-        self.post_processed_data = self.pipeline.apply(self.data.transpose(), extra_params = {"Offset": self.offset}).transpose()
+        self.post_processed_data = self.pipeline.apply(self.data.transpose().copy(), extra_params = {
+            "Offset": self.offset,
+            "OffsetAngleRadians": self.dog_rotation,
+            }).transpose()
         self.occupancy_grid = self.voxel_pipeline.apply(self.post_processed_data.transpose())
 
         # publish to occupancy topic (internal)
@@ -384,7 +409,7 @@ def plot_data(node):
     while rclpy.ok():
         if node.post_processed_data.shape[1] > 0:
             # extract data
-            x, y, z = test_data_recovery(serialise_occupancy_grid(node.occupancy_grid.tolist()))
+            x, y, z = node.post_processed_data#test_data_recovery(serialise_occupancy_grid(node.occupancy_grid.tolist()))
 
             # update scatter plot
             sc._offsets3d = (x, y, z)
