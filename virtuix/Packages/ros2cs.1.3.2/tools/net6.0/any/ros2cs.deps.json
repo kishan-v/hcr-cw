@@ -1,0 +1,144 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v6.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v6.0": {
+      "ros2cs/1.3.2": {
+        "dependencies": {
+          "Rosidl.Generator.CSharp": "1.3.2"
+        },
+        "runtime": {
+          "ros2cs.dll": {}
+        }
+      },
+      "ClangSharp/15.0.2": {
+        "dependencies": {
+          "ClangSharp.Interop": "15.0.2"
+        },
+        "runtime": {
+          "lib/net6.0/ClangSharp.dll": {
+            "assemblyVersion": "15.0.2.0",
+            "fileVersion": "15.0.2.0"
+          }
+        }
+      },
+      "ClangSharp.Interop/15.0.2": {
+        "dependencies": {
+          "libclang": "15.0.0",
+          "libClangSharp": "15.0.0"
+        },
+        "runtime": {
+          "lib/net6.0/ClangSharp.Interop.dll": {
+            "assemblyVersion": "15.0.2.0",
+            "fileVersion": "15.0.2.0"
+          }
+        }
+      },
+      "CppAst/0.9.0": {
+        "dependencies": {
+          "ClangSharp": "15.0.2"
+        },
+        "runtime": {
+          "lib/netstandard2.0/CppAst.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.9.0.0"
+          }
+        }
+      },
+      "CppAst.CodeGen/0.11.3": {
+        "dependencies": {
+          "CppAst": "0.9.0",
+          "Zio": "0.16.1"
+        },
+        "runtime": {
+          "lib/netstandard2.0/CppAst.CodeGen.dll": {
+            "assemblyVersion": "0.11.0.0",
+            "fileVersion": "0.11.3.0"
+          }
+        }
+      },
+      "libclang/15.0.0": {},
+      "libClangSharp/15.0.0": {},
+      "Zio/0.16.1": {
+        "runtime": {
+          "lib/net6.0/Zio.dll": {
+            "assemblyVersion": "0.16.0.0",
+            "fileVersion": "0.16.1.0"
+          }
+        }
+      },
+      "Rosidl.Generator.CSharp/1.3.2": {
+        "dependencies": {
+          "CppAst.CodeGen": "0.11.3"
+        },
+        "runtime": {
+          "Rosidl.Generator.CSharp.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "ros2cs/1.3.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "ClangSharp/15.0.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-N6VU3oFGbFz4s5n6IlW4yvLhInJdg5sG2r2+iGwxWC07AKcJnBSAD2V5vVi6Ef76ayeT/bOCB3MPpvCoaq54yw==",
+      "path": "clangsharp/15.0.2",
+      "hashPath": "clangsharp.15.0.2.nupkg.sha512"
+    },
+    "ClangSharp.Interop/15.0.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-kEf2m15JNBQTlg/Wekj9Jsl09CKwoBxDpzhoad+oiAWsChRp8+YyfbTzakD4g4aTpqB6fcJP1QDupUj5oQ9N+A==",
+      "path": "clangsharp.interop/15.0.2",
+      "hashPath": "clangsharp.interop.15.0.2.nupkg.sha512"
+    },
+    "CppAst/0.9.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-4Dgtue/0Z2/4LBBXbFykyfzywregOgIIufWHyP8gVy+lecrTbBEB2pdj3KkEuZtT+5Mk971FaP+UN1RwuMP6sw==",
+      "path": "cppast/0.9.0",
+      "hashPath": "cppast.0.9.0.nupkg.sha512"
+    },
+    "CppAst.CodeGen/0.11.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ldbIbShnpU4si47lj2dQfdpJzVjpbJTLDj9rg/4QQjrE34JYgeOAeyJS9YQx5wuw6k82WyAAIdvdhzi55vLbUg==",
+      "path": "cppast.codegen/0.11.3",
+      "hashPath": "cppast.codegen.0.11.3.nupkg.sha512"
+    },
+    "libclang/15.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Jwn7mUkEyvIwI03vCS99h7JM7b4PWhWsLKnd4zfFfkwTRbvj9Ac0iGFFxDbLB9oZDdAQZTMdOxRR5Bd7Ai/Bcg==",
+      "path": "libclang/15.0.0",
+      "hashPath": "libclang.15.0.0.nupkg.sha512"
+    },
+    "libClangSharp/15.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-TCw7ehpKGVFn6rNUE6xk/m7aluiROUivSYhP2LgprVw5YAyphWL8qGBFP5UP2aeX3xAuWCpk0JnxqPXdtZyVLQ==",
+      "path": "libclangsharp/15.0.0",
+      "hashPath": "libclangsharp.15.0.0.nupkg.sha512"
+    },
+    "Zio/0.16.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-zFeGSXKKULgWEYApummsXX4+xCVLOZAoMQDTIPmDDQ8bm50tcH1a/IfOy6tVgywL6UOPJ4Dgoed5ex8HNCB/7A==",
+      "path": "zio/0.16.1",
+      "hashPath": "zio.0.16.1.nupkg.sha512"
+    },
+    "Rosidl.Generator.CSharp/1.3.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

@@ -1,0 +1,5 @@
+# numpy  # use whichever version opencv-wants
+# opencv-python~=4.11.0.86  # opencv-python is required, but must contain GSTREAMER support
+aiortc
+av
+websockets
