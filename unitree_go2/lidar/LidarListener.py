@@ -87,20 +87,29 @@ class PostProcessingTransform:
         self.transform_name = transform_name
 
     @abstractmethod
-    def apply(self, data, local_data = None):
+    def apply(self, data, extra_params = None):
         pass
 
 
+''' Subtract known midpoint from the data '''
+class RemoveKnownOffset(PostProcessingTransform):
+    def __init__(self):
+        super().__init__("remove_known_offset")
+
+    def apply(self, data, extra_params = None):
+        assert "Offset" in extra_params.keys()
+
+        return data[:, :3] - extra_params["Offset"]
 
 ''' Find the midpoint of the global data, and center the global map around this'''
-class RemoveOffset(PostProcessingTransform):
+class RemoveOffsetNaive(PostProcessingTransform):
+    # Note: now deprecated
     def __init__(self, v_max):
         super().__init__("remove offset")
         self.initialised = False
 
         self.v_max = v_max
 
-        # TODO: fix this hacky way of recording time
         self.sum_time = 0
         self.last_time = time.time()
         self.ctr = 0
@@ -108,7 +117,8 @@ class RemoveOffset(PostProcessingTransform):
         self.x_k = np.zeros((1,3))
 
 
-    def apply(self, data, local_data = None):
+    def apply(self, data, extra_params = None):
+        local_data = extra_params["local_data"]
         if self.initialised:
             # calculate avg time
             self.sum_time += time.time() - self.last_time
@@ -131,7 +141,7 @@ class RemoveOffset(PostProcessingTransform):
 
 
         out = data
-        out[:, :3] -= self.x_k 
+        out[:, :3] -= self.x_k
 
         return out
 
@@ -156,7 +166,7 @@ class RangeFilter(PostProcessingTransform):
         mask = np.logical_or(lower_bound_filter, upper_bound_filter)
         return np.logical_or(mask, z_mask)
 
-    def apply(self, data, local_data = None):
+    def apply(self, data, extra_params = None):
         mask = self.create_filter(data) 
         return data[~mask]
 
@@ -188,7 +198,7 @@ class ConvertToOccupancyGrid(PostProcessingTransform):
 
         return np.asarray(idx, dtype=int)
 
-    def apply(self, data, local_data=None):
+    def apply(self, data, extra_params=None):
         # recenter the data
         data[:, 0] += self.x_width / 2
         data[:, 1] += self.y_width / 2
@@ -223,7 +233,7 @@ class RoundData(PostProcessingTransform):
     def rounding_policy(self, data, dist):
          return (data + dist // 2) // dist * dist 
 
-    def apply(self, data, local_data = None):
+    def apply(self, data, extra_params = None):
         # downsample by rounding
         data = data[:, :3]
         data = self.rounding_policy(data, self.step_size)
@@ -243,9 +253,9 @@ class PostProcessingPipeline:
         assert issubclass(type(transform), PostProcessingTransform)
         self.transforms.append(transform)
 
-    def apply(self, data, local_data=None):
+    def apply(self, data, extra_params=None):
         for transform in self.transforms:
-            data = transform.apply(data, local_data=local_data)
+            data = transform.apply(data, extra_params=extra_params)
 
         return data
 
@@ -280,6 +290,7 @@ class LidarProcessor(Node):
 
         # initialise main post-processing pipeline
         self.pipeline = PostProcessingPipeline()
+        self.pipeline.add_transform(RemoveKnownOffset())
         self.pipeline.add_transform(RangeFilter(0.2, 2.0, 0.2, 2.0))
 
         # initialise voxelisation pipeline
@@ -337,13 +348,8 @@ class LidarProcessor(Node):
         else:
             self.data = data
 
-
-        # get the current centroid and center the data
-        usr_data = np.copy(self.data).transpose()
-        usr_data[:, :3] -= self.offset
-
         # apply data processing pipeline
-        self.post_processed_data = self.pipeline.apply(usr_data, original_data).transpose()
+        self.post_processed_data = self.pipeline.apply(self.data.transpose(), extra_params = {"Offset": self.offset}).transpose()
         self.occupancy_grid = self.voxel_pipeline.apply(self.post_processed_data.transpose())
 
         # publish to occupancy topic (internal)
@@ -363,7 +369,7 @@ def plot_data(node):
     # plot settings
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    
+
     sc = ax.scatter([], [], [], c=[], cmap='viridis', marker='o', s=1)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
@@ -442,7 +448,7 @@ def plot_voxels(node):
 
             # redraw the visible plot
             plt.draw()
-        
+
         plt.pause(0.5)
 
 
