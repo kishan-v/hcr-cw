@@ -1,0 +1,1 @@
+ffplay -protocol_whitelist file,udp,rtp -fflags nobuffer -flags low_delay -framedrop -i stream.sdp
