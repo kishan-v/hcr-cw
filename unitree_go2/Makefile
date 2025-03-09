@@ -19,7 +19,7 @@ _start_container_if_not_running:
 	@if ! docker ps -a | grep -w unitree_container; then $(MAKE) run; fi
 
 _start_lidar_container_if_not_running:
-	@if ! docker ps -a | grep -w lidar_processor; then $(MAKE) run; fi
+	@if ! docker ps -a | grep -w lidar_container; then $(MAKE) run-lidar; fi
 
 run:
 	docker stop unitree_container || true && docker rm unitree_container || true
@@ -32,22 +32,20 @@ run:
 	unitree_go2 tail -f /dev/null
 
 run-lidar:
-	docker stop lidar_processor || true && docker rm lidar_processor || true
+	docker stop lidar_container || true && docker rm lidar_container || true
 	docker run \
-	-e DISPLAY=localhost:10.0 \
+	-e DISPLAY=localhost:11.0 \
 	-v /tmp/.X11-unix:/tmp/.X11-unix \
 	-v $(HOME_ENV)/.Xauthority:/root/.Xauthority:rw \
     	--env XAUTHORITY=/root/.Xauthority \
 	--rm \
 	--net=host \
 	--privileged \
-	--name lidar_processor \
-	-v "$(current_dir):/root/data_log/" \
-	-t lidar_processor 
+	--name lidar_container \
+	-t lidar_processor
 
 run-lidar-debug: _start_lidar_container_if_not_running
-	docker exec -it lidar_processor bash
-
+	docker exec -it lidar_container bash
 
 run-simulation: _start_container_if_not_running
 	docker exec -t unitree_container bash -c "source devel/setup.bash && roslaunch unitree_gazebo normal.launch rname:=go2 wname:=earth"	 & \
@@ -60,3 +58,6 @@ run-interface: _start_container_if_not_running
 
 stop:
 	docker kill unitree_container
+
+stop-lidar:
+	docker kill lidar_container
