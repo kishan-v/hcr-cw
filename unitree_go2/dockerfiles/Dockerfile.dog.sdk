@@ -1,0 +1,53 @@
+FROM --platform=linux/arm64 ros:foxy
+SHELL ["/bin/bash", "-c"] 
+
+WORKDIR /root/ros2_ws
+RUN mkdir -p /root/ros2_ws/src & source /opt/ros/foxy/setup.bash && colcon build
+
+RUN apt-get update && apt-get install -y --no-install-recommends git
+
+WORKDIR /root/ros2_ws/src
+RUN git clone https://github.com/unitreerobotics/unitree_sdk2
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    libeigen3-dev  # Install Eigen3 development files
+
+WORKDIR /root/ros2_ws/src/unitree_sdk2
+RUN mkdir build
+
+WORKDIR /root/ros2_ws/src/unitree_sdk2/build
+RUN cmake ..
+RUN make install -j8
+
+RUN apt update
+RUN apt install -y python3-yaml python3-setuptools
+
+WORKDIR /root/ros2_ws/src/
+RUN git clone https://github.com/unitreerobotics/unitree_ros2
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-foxy-rmw-cyclonedds-cpp \
+    ros-foxy-rosidl-generator-dds-idl \
+    bison
+
+WORKDIR /root/ros2_ws/src/unitree_ros2/cyclonedds_ws/src
+RUN git clone https://github.com/ros2/rmw_cyclonedds -b foxy
+RUN git clone https://github.com/eclipse-cyclonedds/cyclonedds -b releases/0.8.x 
+
+WORKDIR /root/ros2_ws/src/unitree_ros2/cyclonedds_ws
+RUN colcon build --packages-select cyclonedds
+
+WORKDIR /root/ros2_ws/src
+COPY ./dog_interface ./dog_interface
+
+WORKDIR /root/ros2_ws
+
+RUN sed -i 's/$HOME\/unitree_ros2\/cyclonedds_ws\//$HOME\/ros2_ws\//' ./src/unitree_ros2/setup.sh
+RUN sed -i 's/enp3s0/eth0/' ./src/unitree_ros2/setup.sh
+
+RUN source /opt/ros/foxy/setup.bash && source install/setup.bash && colcon build
+
+
+
