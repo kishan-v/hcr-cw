@@ -2,6 +2,7 @@ using UnityEngine;
 using static System.Math;
 using System;
 using WebSocketSharp;
+using System.Text;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using Unity.XR.CoreUtils;
@@ -37,7 +38,7 @@ public class TeleopOmniCommunication : MonoBehaviour
     private LidarProcessor lidarProcessor;
 
     // concurrent queue to store messages
-    private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
+    private ConcurrentQueue<byte[]> lidarDataQueue = new ConcurrentQueue<byte[]>();
 
     void Start()
     {
@@ -75,7 +76,7 @@ public class TeleopOmniCommunication : MonoBehaviour
             //    Debug.Log("Enqueuing LiDAR message.");
             //    lidarDataQueue.Enqueue(e.Data);
             //}
-            lidarDataQueue.Enqueue(e.Data);
+            lidarDataQueue.Enqueue(e.RawData);
         };
 
         ws.OnError += (sender, e) =>
@@ -142,11 +143,11 @@ public class TeleopOmniCommunication : MonoBehaviour
     void Update()
     {
         // LIDAR
-        while (lidarDataQueue.TryDequeue(out string lidarString))
+        while (lidarDataQueue.TryDequeue(out byte[] lidarBytes))
         {
             if (lidarProcessor != null)
             {
-                lidarProcessor.ProcessLidarData(lidarString);
+                lidarProcessor.ProcessLidarData(lidarBytes);
             }
             else
             {
