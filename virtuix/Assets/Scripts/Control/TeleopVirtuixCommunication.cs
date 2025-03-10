@@ -106,12 +106,20 @@ public class TeleopOmniCommunication : MonoBehaviour
         }
     }
 
-    float degToRad(float degrees)
+    float DegToRad(float degrees)
     {
         // Convert degrees to radians
         double radians = degrees * (Math.PI / 180.0);
         // Normalize angle
         return (float)Math.IEEERemainder(radians, 2 * Math.PI);
+    }
+
+    float RadToDeg(float radians)
+    {
+        // Convert degrees to radians
+        double degrees = radians * (180 / Math.PI);
+        // Normalize angle
+        return (float)Math.IEEERemainder(degrees, 360);
     }
 
     private Vector3 multiplier = new Vector3(5, 5, 5);
@@ -138,6 +146,20 @@ public class TeleopOmniCommunication : MonoBehaviour
         vec = Vector3.Max(vec, speedLimitVec);
 
         return vec;
+    }
+
+    // Rotates sphere so perceived video matches the rotations of dog (delay)
+    void RotateSphereDog()
+    {
+
+    }
+
+    // Rotates sphere so perceived video matches operator's turning
+    // Instantly rotates
+    void RotateSphereVirtuix()
+    {
+        float diff = RadToDeg(previousRotation) - omniMovement.currentOmniYaw;
+        sphere.Rotate(Vector3.up * diff);
     }
 
 
@@ -194,10 +216,11 @@ public class TeleopOmniCommunication : MonoBehaviour
             // movement = Vector3.Min(movement, Vector3.one * speedLimit);
 
             // Get rotation
-            float radiansRotation = degToRad(omniMovement.currentOmniYaw);
+            float radiansRotation = DegToRad(omniMovement.currentOmniYaw);
             // Don't update rotation if it's below the threshold
             if (Math.Abs((float)radiansRotation - previousRotation) > rotationThreshold) {
                 rotateFlag = true;
+                RotateSphereVirtuix();
                 previousRotation = radiansRotation;
             }
             else {
