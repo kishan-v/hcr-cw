@@ -23,19 +23,30 @@ public class LidarProcessor : MonoBehaviour
         /* We are sending all the header information (depth, width, height
          * etc) even though we are apparently hardcoding all of them. We
          * can't create a copy of the whole array otherwise this would be
-         * expensive, so we just skip the first 20 bytes. Yes. */
+         * expensive, so we just skip the first 24 bytes. Yes. */
         int headerSize = 20;
+        int bitIndex = 0;
         for (int i = headerSize; i < data.Length; i++)
         {
-            for (int j = 0; i < 8; i++) 
-            {
-               // Extract a bit and shift along
-               // remember this is big-endian!!
-               bool bit = (data[i] & (1 << j)) != 0;
-               // Multiply byte index (i) by 8, then add bit index (j)
-               if (bit) trueIndices.Add((i - headerSize)*8 + j);
-            }
-        } 
+            // Loop unrolling made if faster :D
+            byte b = data[i];
+            if ((b & (1 << 7)) != 0) trueIndices.Add(bitIndex);
+            bitIndex++;
+            if ((b & (1 << 6)) != 0) trueIndices.Add(bitIndex);
+            bitIndex++;
+            if ((b & (1 << 5)) != 0) trueIndices.Add(bitIndex);
+            bitIndex++;
+            if ((b & (1 << 4)) != 0) trueIndices.Add(bitIndex);
+            bitIndex++;
+            if ((b & (1 << 3)) != 0) trueIndices.Add(bitIndex);
+            bitIndex++;
+            if ((b & (1 << 2)) != 0) trueIndices.Add(bitIndex);
+            bitIndex++;
+            if ((b & (1 << 1)) != 0) trueIndices.Add(bitIndex);
+            bitIndex++;
+            if ((b & (1 << 0)) != 0) trueIndices.Add(bitIndex);
+            bitIndex++;
+        }
         return trueIndices;
     }
 

@@ -76,6 +76,7 @@ public class TeleopOmniCommunication : MonoBehaviour
             //    Debug.Log("Enqueuing LiDAR message.");
             //    lidarDataQueue.Enqueue(e.Data);
             //}
+            //Debug.Log("Enqueueing bytes into LiDAR queue");
             lidarDataQueue.Enqueue(e.RawData);
         };
 
