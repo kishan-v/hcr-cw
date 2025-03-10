@@ -18,7 +18,7 @@ from aiortc import (
     RTCPeerConnection,
     RTCSessionDescription,
 )
-from computer_vision import process_frame
+from computer_vision import annotation
 from websocket_signaling import WebSocketSignaling
 
 
@@ -31,11 +31,12 @@ TURN_SERVER_URI = "turn:130.162.176.219:3478"
 # TURN_SERVER_URI = "turn:132.145.67.221:3478"
 
 MP4_SOURCE = "test_video.mp4"
-DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta" or "mp4". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
+DEFAULT_VIDEO_SOURCE = "webcam"  # "webcam" or "theta" or "mp4". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
 
 
-COMP_VIS_MODE = False  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
+COMP_VIS_MODE = True  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
 CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a frame.
+COMP_VIS_FPS_CAP = 30
 
 
 class VideoCameraTrack(MediaStreamTrack):
@@ -72,6 +73,9 @@ class VideoCameraTrack(MediaStreamTrack):
         # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         self.device = device
 
+        if COMP_VIS_MODE:
+            self.compVis = annotation(fps_cap=COMP_VIS_FPS_CAP)
+
     async def recv(self) -> av.VideoFrame:
         pts, time_base = await self.next_timestamp()
 
@@ -90,18 +94,8 @@ class VideoCameraTrack(MediaStreamTrack):
                 raise Exception("Failed to read frame from video source")
 
         if COMP_VIS_MODE:
-            current_time = time.time()
-            if current_time - self.last_cv_time >= self.cv_interval_secs:
-                self.last_cv_time = current_time
-                loop = asyncio.get_event_loop()
-                try:
-                    # Offload processing to executor without blocking the main loop.
-                    frame = await loop.run_in_executor(
-                        self.executor, process_frame, frame
-                    )
-                except Exception as e:
-                    print(f"CV processing error: {e}")
-                    # If processing fails, use the original frame.
+            self.compVis.last_frame = frame.copy()
+            frame = self.compVis.annotate(frame)
 
         # # Display frame using imshow in a non-blocking way
         # cv2.imshow(self.window_name, frame)
