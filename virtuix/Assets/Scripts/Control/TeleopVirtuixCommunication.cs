@@ -13,8 +13,7 @@ public class TeleopOmniCommunication : MonoBehaviour
     private bool shouldQuit = false;
     private const string RELAYER_URL = "ws://132.145.67.221:9090";
 
-    // Reference to the Virtuix Omni movement component.
-    // This component must be part of your scene (typically on your OmniCharacterController prefab).
+    // Virtuix component must be part of scene (dummy movement component object)
     public OmniMovementComponent omniMovement;
 
     // A threshold below which we treat movement as zero (to filter out noise).
@@ -24,6 +23,8 @@ public class TeleopOmniCommunication : MonoBehaviour
     public Vector3 movement = new(0, 0, 0); // Debug
     public Vector3 debugMovement = new(0, 0, 0); // Debug
     private int noStepCount = 0;
+
+    // Number of 0 steps before a 'STOP' command is sent
     public int noStepThreshold = 10;
 
     public double speedLimit = 0.4;
@@ -31,6 +32,7 @@ public class TeleopOmniCommunication : MonoBehaviour
 
     private float previousRotation = 0;
     public float rotationThreshold = 0.2f;
+    public Transform sphere;
     private bool rotateFlag = true;
 
     [SerializeField]
@@ -38,6 +40,7 @@ public class TeleopOmniCommunication : MonoBehaviour
 
     // concurrent queue to store messages
     private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
+
 
     void Start()
     {
@@ -187,8 +190,8 @@ public class TeleopOmniCommunication : MonoBehaviour
 
             // Apply movement multiplier
             movement *= movementMultiplier;
-            // TODO: move speed limit after multip-lier
-            //movement = Vector3.Min(movement, movementLimit);
+            // Apply speed limit
+            // movement = Vector3.Min(movement, Vector3.one * speedLimit);
 
             // Get rotation
             float radiansRotation = degToRad(omniMovement.currentOmniYaw);
