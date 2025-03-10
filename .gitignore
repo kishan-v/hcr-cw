@@ -221,3 +221,6 @@ virtuix/Assets/ThirdPartyPlugins/
 virtuix/.Collab/
 
 tmux/logs
+
+#ignore YOLO model
+yolo11n-pose.pt

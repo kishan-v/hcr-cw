@@ -70,7 +70,6 @@ class VideoCameraTrack(MediaStreamTrack):
 
         # self.window_name = "Local Preview"
         # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        self.device = device
 
         if COMP_VIS_MODE:
             self.compVis = annotation(fps_cap=COMP_VIS_FPS_CAP)
@@ -87,7 +86,10 @@ class VideoCameraTrack(MediaStreamTrack):
 
         if COMP_VIS_MODE:
             self.compVis.last_frame = frame.copy()
-            frame = self.compVis.annotate(frame)
+            try:
+                frame = self.compVis.annotate(frame)
+            except:
+                pass
 
         # # Display frame using imshow in a non-blocking way
         # cv2.imshow(self.window_name, frame)

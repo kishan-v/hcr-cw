@@ -3,3 +3,4 @@
 aiortc
 av
 websockets
+ultralytics
