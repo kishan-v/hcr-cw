@@ -11,11 +11,11 @@ public class JoystickSphere : MonoBehaviour
 
     void Start()
     {
-        if (handType == SteamVR_Input_Sources.RightHand) 
+        if (handType == SteamVR_Input_Sources.LeftHand) 
         {
             rotationSpeed = -rotationSpeed;
         }
-        else if (handType != SteamVR_Input_Sources.LeftHand)
+        else if (handType != SteamVR_Input_Sources.RightHand)
         {
             Debug.LogError("Invalid hand type");
         }
