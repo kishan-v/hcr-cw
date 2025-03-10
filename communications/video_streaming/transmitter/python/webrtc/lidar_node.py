@@ -23,7 +23,7 @@ class LidarNode(Node):
         data = msg.data
         self.counter += 1
         if (
-            self.counter >= 10
+            self.counter >= 1
             and self.data_channel
             and self.data_channel.readyState == "open"
         ):

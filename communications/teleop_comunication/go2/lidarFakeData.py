@@ -7,7 +7,7 @@ class FakeLidarPublisher(Node):
     def __init__(self):
         super().__init__("fake_lidar_publisher")
         self.publisher_ = self.create_publisher(String, "/occupancy_grid", 10)
-        self.timer = self.create_timer(5.0, self.publish_lidar_data)
+        self.timer = self.create_timer(0.1, self.publish_lidar_data)
 
     def publish_lidar_data(self):
         # Your full JSON string containing LiDAR data
