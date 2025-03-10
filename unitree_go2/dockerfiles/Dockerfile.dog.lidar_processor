@@ -19,7 +19,7 @@ RUN mkdir build
 
 WORKDIR /root/ros2_ws/src/unitree_sdk2/build
 RUN cmake ..
-RUN make install
+RUN make install -j4
 
 RUN apt update
 RUN apt install -y python3-yaml python3-setuptools
