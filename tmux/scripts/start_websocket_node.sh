@@ -6,4 +6,4 @@ fi
 
 pyenv shell system
 
-python3 "$REPO_DIR/communications/teleop_comunication/go2/websocket_node.py"
+python3 "$REPO_DIR/communications/teleop_communication/go2/websocket_node.py"
