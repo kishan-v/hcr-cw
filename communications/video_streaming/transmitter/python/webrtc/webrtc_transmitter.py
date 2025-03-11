@@ -4,6 +4,7 @@ import asyncio
 import fractions
 import logging
 import math
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
@@ -210,6 +211,12 @@ async def run(
             capture = cv2.VideoCapture(index=0)
             print("Opening webcam")
         elif input_device == "theta":
+            if not re.search(r"GStreamer:\s*YES", cv2.getBuildInformation()):
+                raise RuntimeError(
+                    "GStreamer support is not enabled in this OpenCV build."
+                )
+            else:
+                logging.debug("GStreamer support found in OpenCV build.")
             # Verified pipeline: ~ 300 ms latency (to Python receiver on LAN)
             gst_pipeline = (
                 "thetauvcsrc mode=2K ! "
