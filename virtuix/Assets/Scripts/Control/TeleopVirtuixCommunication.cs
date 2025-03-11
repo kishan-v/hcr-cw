@@ -160,7 +160,7 @@ public class TeleopOmniCommunication : MonoBehaviour
     // Instantly rotates
     void RotateSphereVirtuix()
     {
-        float diff = previousRotationExact - omniMovement.currentOmniYaw;
+        float diff = omniMovement.currentOmniYaw - previousRotationExact;
         sphere.Rotate(Vector3.up * diff);
         previousRotationExact = omniMovement.currentOmniYaw;
     }
