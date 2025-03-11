@@ -25,6 +25,7 @@
       cmake ..
       make
       sudo make install
+      sudo ldconfig
       ```
 
 ### Peers are unable to connect and stream video
