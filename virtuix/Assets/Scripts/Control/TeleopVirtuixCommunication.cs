@@ -24,7 +24,7 @@ public class TeleopOmniCommunication : MonoBehaviour
     public Vector3 debugMovement = new(0, 0, 0);    // Debug
     public int noStepThreshold = 10;                // Number of 0 steps before a 'STOP' command is sent
     public double speedLimit = 0.4;                 // Maximum output speed
-    public float stepIncrement = 0.2f;              // Size of a single step
+    public float stepIncrement = 0.02f;             // Size of a single step
 
     private Vector3 stepMultiplier;
     private Vector3 stepDivisor;
@@ -253,7 +253,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                     {
                         // In this protocol, we assume the linear motion is along the x-axis.
                         // Adjust the mapping as needed (e.g. swap axes) to suit your application.
-                        linear = new { x = -movement.x, y = 0.0, z = -movement.z },
+                        linear = new { x = -movement.x, y = 0.0, z = 0.0 },
                         angular = new { x = 0.0, y = 0.0, z = -radiansRotation },
                         timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                     }
