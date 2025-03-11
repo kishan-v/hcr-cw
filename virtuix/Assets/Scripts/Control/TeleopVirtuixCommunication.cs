@@ -38,11 +38,12 @@ public class TeleopOmniCommunication : MonoBehaviour
     private Vector3 movingAverageSum = Vector3.zero;
 
     // ROTATION
-    private float previousRotation = 0;             // Most recent sent rotation (Radians)
-    private float previousRotationExact = 0;        // Previous rotation to turn sphere (Degrees)  
+    private float previousRadRotation = 0;             // Most recent sent rotation (Radians)
+    private float previousDegRotation = 0;        // Previous rotation to turn sphere (Degrees)  
     public float rotationThreshold = 0.2f;
     
     public Transform sphere;
+    private float degRotation = 0;
     private bool rotateFlag = true;
 
     [SerializeField]
@@ -173,10 +174,9 @@ public class TeleopOmniCommunication : MonoBehaviour
     // Instantly rotates
     void RotateSphereMatchVirtuix()
     {
-        float diff = omniMovement.currentOmniYaw - previousRotationExact;
+        float diff = degRotation - previousDegRotation;
         sphere.Rotate(Vector3.up * diff);
-        // TODO: add delay and use dog's rotation to 
-        previousRotationExact = omniMovement.currentOmniYaw;
+        previousDegRotation = degRotation;
     }
 
 
@@ -214,7 +214,8 @@ public class TeleopOmniCommunication : MonoBehaviour
             movement = Vector3.Min(movement, speedLimitVec);    // Apply speed limit
 
             // Check movement above threshold
-            if (Math.Abs(movement.x) > movementThreshold) {
+            if (Math.Abs(movement.x) > movementThreshold) 
+            {
                 noStepCount = 0;
             }
             else {
@@ -230,17 +231,18 @@ public class TeleopOmniCommunication : MonoBehaviour
             }
 
             // ROTATION
-            float radiansRotation = DegToRad(omniMovement.currentOmniYaw);
+            float degRotation = omniMovement.currentOmniYaw;
+            float radRotation = DegToRad(degRotation);
 
             // Check rotation above threshold
-            if (Math.Abs((float)radiansRotation - previousRotation) > rotationThreshold) {
+            if (Math.Abs((float)radRotation - previousRadRotation) > rotationThreshold) {
                 rotateFlag = true;
                 RotateSphereMatchVirtuix();
-                previousRotation = radiansRotation;
+                previousRadRotation = radRotation;
             }
             else {
                 rotateFlag = false;
-                radiansRotation = previousRotation;
+                radRotation = previousRadRotation;
             }
 
             // Send message to dog if change
@@ -257,7 +259,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                         // In this protocol, we assume the linear motion is along the x-axis.
                         // Adjust the mapping as needed (e.g. swap axes) to suit your application.
                         linear = new { x = -movement.x, y = 0.0, z = 0.0 },
-                        angular = new { x = 0.0, y = 0.0, z = -radiansRotation },
+                        angular = new { x = 0.0, y = 0.0, z = -radRotation },
                         timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                     }
                 };
