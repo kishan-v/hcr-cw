@@ -11,6 +11,9 @@ echo "Working from repository: $REPO_DIR"
 # Remember to run `chmod +x <script_name>.sh` to make the scripts executable
 SCRIPTS=(
     "$REPO_DIR/tmux/scripts/start_video_transmitter.sh"
+    "$REPO_DIR/tmux/scripts/start_websocket_node.sh"
+    "$REPO_DIR/tmux/scripts/start_virtuix_controller.sh"
+    "$REPO_DIR/tmux/scripts/start_joystick_controller.sh"
     "$REPO_DIR/tmux/scripts/script2.sh"
     "$REPO_DIR/tmux/scripts/script3.sh"
     "$REPO_DIR/tmux/scripts/script4.sh"

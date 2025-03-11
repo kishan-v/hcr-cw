@@ -32,24 +32,7 @@ class WebsocketNode(Node):
 
     def lidar_callback(self, msg):
         try:
-            # # Parse the incoming JSON from the ROS message
-            # incoming_data = json.loads(msg.data)
-            
-            # # Check that the JSON has the expected keys
-            # expected_keys = {"world_dims", "timestamp", "box_vals"}
-            # if not expected_keys.issubset(incoming_data.keys()):
-            #     self.get_logger().warn("Received LiDAR data does not match expected format.")
-            #     return
-
-            
-            # # Only send if the websocket is connected
-            # if self.websocket is not None:
-            #     # Schedule the send operation on the asyncio event loop
-            #     asyncio.run_coroutine_threadsafe(
-            #         self.websocket.send(json.dumps(incoming_data)),
-            #         self.loop
-            #     )
-                    # Minimal check: verify the expected keys exist as substrings
+            # Minimal check: verify the expected keys exist as substrings
             if ('"world_dims"' not in msg.data or
                 '"timestamp"' not in msg.data or
                 '"box_vals"' not in msg.data):
