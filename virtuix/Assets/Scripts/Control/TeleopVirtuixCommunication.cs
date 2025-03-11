@@ -30,8 +30,10 @@ public class TeleopOmniCommunication : MonoBehaviour
     public double speedLimit = 0.4;
     private int steps = 5;
 
-    private float previousRotation = 0;
+    private float previousRotation = 0;             // Most recent sent rotation (Radians)
+    private float previousRotationExact = 0;        // Previous rotation to turn sphere (Degrees)  
     public float rotationThreshold = 0.2f;
+    
     public Transform sphere;
     private bool rotateFlag = true;
 
@@ -158,8 +160,9 @@ public class TeleopOmniCommunication : MonoBehaviour
     // Instantly rotates
     void RotateSphereVirtuix()
     {
-        float diff = RadToDeg(previousRotation) - omniMovement.currentOmniYaw;
+        float diff = previousRotationExact - omniMovement.currentOmniYaw;
         sphere.Rotate(Vector3.up * diff);
+        previousRotationExact = omniMovement.currentOmniYaw;
     }
 
 
