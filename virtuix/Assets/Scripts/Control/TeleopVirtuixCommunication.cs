@@ -33,8 +33,9 @@ public class TeleopOmniCommunication : MonoBehaviour
     private int noStepCount = 0;
 
     // Moving average configuration
-    private Queue<Vector3> movementHistory = new Queue<Vector3>();
     public int movingAverageWindow = 10;            // Number of frames to average over
+    private Queue<Vector3> movementHistory = new Queue<Vector3>();
+    private Vector3 movingAverageSum = Vector3.zero;
 
     // ROTATION
     private float previousRotation = 0;
@@ -137,19 +138,16 @@ public class TeleopOmniCommunication : MonoBehaviour
     {
         // Add new movement to history
         movementHistory.Enqueue(newMovement);
+        movingAverageSum += newMovement;
         
         // Remove oldest entry if over window size
-        while (movementHistory.Count > movingAverageWindow)
+        if (movementHistory.Count > movingAverageWindow)
         {
-            movementHistory.Dequeue();
+            Vector3 oldest = movementHistory.Dequeue();
+            movingAverageSum -= oldest;
         }
-
-        // Calculate average
-        Vector3 sum = Vector3.zero;
-        foreach (Vector3 movement in movementHistory)
-            sum += movement;
         
-        return sum / movementHistory.Count;
+        return movingAverageSum / movementHistory.Count;
     }
 
     Vector3 ApplySteppedMovement(Vector3 movement)
