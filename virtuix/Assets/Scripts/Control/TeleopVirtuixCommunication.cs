@@ -38,8 +38,10 @@ public class TeleopOmniCommunication : MonoBehaviour
     private Vector3 movingAverageSum = Vector3.zero;
 
     // ROTATION
-    private float previousRotation = 0;
+    private float previousRotation = 0;             // Most recent sent rotation (Radians)
+    private float previousRotationExact = 0;        // Previous rotation to turn sphere (Degrees)  
     public float rotationThreshold = 0.2f;
+    
     public Transform sphere;
     private bool rotateFlag = true;
 
@@ -171,9 +173,10 @@ public class TeleopOmniCommunication : MonoBehaviour
     // Instantly rotates
     void RotateSphereMatchVirtuix()
     {
-        float diff = RadToDeg(previousRotation) - omniMovement.currentOmniYaw;
+        float diff = omniMovement.currentOmniYaw - previousRotationExact;
         sphere.Rotate(Vector3.up * diff);
         // TODO: add delay and use dog's rotation to 
+        previousRotationExact = omniMovement.currentOmniYaw;
     }
 
 
