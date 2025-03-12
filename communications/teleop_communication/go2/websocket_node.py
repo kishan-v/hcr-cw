@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64, String
+from lidar_packer import pack_lidar as packer
 import asyncio
 import websockets
 import json
@@ -33,17 +34,23 @@ class WebsocketNode(Node):
     def lidar_callback(self, msg):
         try:
             # Minimal check: verify the expected keys exist as substrings
+
+
             if ('"world_dims"' not in msg.data or
                 '"timestamp"' not in msg.data or
                 '"box_vals"' not in msg.data):
                 self.get_logger().warn("Received LiDAR data does not match expected format.")
                 return
 
+            # Pack the booleans
+            packed_data = packer(msg.data)
+            self.get_logger().info(f"Sending lidar data of size: {len(packed_data)}")
+
             # Only send if the websocket is connected.
             if self.websocket is not None:
                 # Forward the raw string without additional serialization.
                 asyncio.run_coroutine_threadsafe(
-                    self.websocket.send(msg.data),
+                    self.websocket.send(packed_data),
                     self.loop
                 )
         except Exception as e:
