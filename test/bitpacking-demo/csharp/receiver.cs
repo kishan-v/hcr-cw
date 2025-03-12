@@ -8,6 +8,40 @@ namespace BitPackingReceiver
 {
     class Program
     {
+        static private List<int> FindTrueIndices(byte[] data)
+        {
+            List<int> trueIndices = new List<int>();
+
+            /* We are sending all the header information (depth, width, height
+             * etc) even though we are apparently hardcoding all of them. We
+             * can't create a copy of the whole array otherwise this would be
+             * expensive, so we just skip the first 24 bytes. Yes. */
+            int headerSize = 20;
+            int bitIndex = 0;
+            for (int i = headerSize; i < data.Length; i++)
+            {
+                // Loop unrolling made if faster :D
+                byte b = data[i];
+                if ((b & (1 << 7)) != 0) trueIndices.Add(bitIndex);
+                bitIndex++;
+                if ((b & (1 << 6)) != 0) trueIndices.Add(bitIndex);
+                bitIndex++;
+                if ((b & (1 << 5)) != 0) trueIndices.Add(bitIndex);
+                bitIndex++;
+                if ((b & (1 << 4)) != 0) trueIndices.Add(bitIndex);
+                bitIndex++;
+                if ((b & (1 << 3)) != 0) trueIndices.Add(bitIndex);
+                bitIndex++;
+                if ((b & (1 << 2)) != 0) trueIndices.Add(bitIndex);
+                bitIndex++;
+                if ((b & (1 << 1)) != 0) trueIndices.Add(bitIndex);
+                bitIndex++;
+                if ((b & (1 << 0)) != 0) trueIndices.Add(bitIndex);
+                bitIndex++;
+            }
+            return trueIndices;
+        }
+
         static void Main(string[] args)
         {
             // Set up the TCP listener
@@ -34,7 +68,7 @@ namespace BitPackingReceiver
                     NetworkStream stream = client.GetStream();
                     
                     // Struct format on python-end is iiifL = total 20 bytes
-                    byte[] fixedBuffer = new byte[20];
+                    byte[] fixedBuffer = new byte[4020];
                     
                     // Read the fixed-length part first
                     int bytesRead = stream.Read(fixedBuffer, 0, fixedBuffer.Length);
@@ -42,39 +76,20 @@ namespace BitPackingReceiver
                     
                     if (bytesRead == fixedBuffer.Length)
                     {
-                        // Unpack the fixed-length data
-                        int width = BitConverter.ToInt32(fixedBuffer, 0);
-                        int depth = BitConverter.ToInt32(fixedBuffer, 4);
-                        int height = BitConverter.ToInt32(fixedBuffer, 8);
-                        float stepsize = BitConverter.ToSingle(fixedBuffer, 12);
-                        int timestamp = BitConverter.ToInt32(fixedBuffer, 16);
-
-                        // Extract the packed box_vals
-                        // Yes this is 4kb on the heap
-                        byte[] packedBoxVals = new byte[4000];
-                        stream.Read(packedBoxVals, 0, 4000);
-
-                        // Unpack the boxvals
-                        var unpackedBoxVals = new List<bool>(32000);
-                        foreach (byte b in packedBoxVals)
+                        List<int> trueIndices = FindTrueIndices(fixedBuffer);
+                        foreach (int b in trueIndices)
                         {
-                            for (int i = 0; i < 8; i++)
-                            {
-                                // Extract a bit and shift along
-                                // remember this is big-endian!!
-                                bool bit = (b & (1 << i)) != 0;
-                                unpackedBoxVals.Add(bit);
-                            }
+                            Console.WriteLine(b);
                         }
-                        
+
                         // Display the unpacked values
-                        Console.WriteLine("\nUnpacked data:");
+                        /* Console.WriteLine("\nUnpacked data:");
                         Console.WriteLine($"Width: {width}");
                         Console.WriteLine($"Depth: {depth}");
                         Console.WriteLine($"Height: {height}");
                         Console.WriteLine($"Stepsize: {stepsize}");
                         Console.WriteLine($"Timestamp: {timestamp}");
-                        Console.WriteLine(string.Join(", ", unpackedBoxVals));
+                        Console.WriteLine(string.Join(", ", unpackedBoxVals)); */
                         
                         // Send acknowledgment
                         string response = "Data received successfully";

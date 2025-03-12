@@ -3,6 +3,9 @@ import time
 import struct
 import json
 from fake_data import json_message
+from lidar_packer import pack_lidar as packer
+
+empty = ["false" for _ in range(4000)]
 
 def send_packed_data():
     # Create a socket
@@ -28,32 +31,13 @@ def send_packed_data():
     try:
         # Keep the timestamp and worlddims the same, the box_vals are the main
         # inefficiency
-
-        # Define a bytearray for the bitpacked data
-        packed = bytearray()
-        payload = json.loads(json_message)
-        bools = payload['box_vals']
-        # Increment by 8 each time (for bitpacking into bytes)
-        for i in range(0, len(bools), 8):
-            byte = 0
-            chunk = bools[i:i+8]
-            for j, b, in enumerate(chunk):
-                # OR and shift
-                byte |= (1 if b else 0) << j
-            # Add the byte to the bytearray. Make sure it's clear this is
-            # big-endian!
-            packed.append(byte)
+        packed = packer(json_message)
 
         print(f"Packed box_vals has size {len(packed)}")
 
-        dims = payload['world_dims']
-        header_data = struct.pack('iiifL', dims['width'], dims['depth'], dims['height'], dims['step_size'], payload['timestamp'])
-        # Concatenate the struct-packed worlddims and timestamp to the bitpacked box_vals
-        full_data = header_data + packed
-
         # Send the data
-        sock.sendall(full_data)
-        print(f"Sent {len(full_data)} bytes of packed data")
+        sock.sendall(packed)
+        print(f"Sent {len(packed)} bytes of packed data")
         
         # Wait for confirmation
         response = sock.recv(1024)
