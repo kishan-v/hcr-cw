@@ -21,9 +21,22 @@ public class TeleopJoystickCommunication : MonoBehaviour
     // Deadzone threshold
     public float deadzone = 0.1f;
 
+    [SerializeField]
+    private LidarProcessor lidarProcessor;
+
+    //TODO make the queue a fixed size (drop oldest)
+    private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
+
+
     void Start()
     {
+        if (lidarProcessor == null)
+        {
+            Debug.LogError("LidarProcessor not found!");
+        }
+
         ConnectWebSocket();
+
     }
 
     void ConnectWebSocket()
@@ -38,6 +51,7 @@ public class TeleopJoystickCommunication : MonoBehaviour
         ws.OnMessage += (sender, e) =>
         {
             //Debug.Log("Received reply: " + e.Data);
+            lidarDataQueue.Enqueue(e.Data);
         };
 
         ws.OnError += (sender, e) =>
@@ -67,6 +81,19 @@ public class TeleopJoystickCommunication : MonoBehaviour
 
     void Update()
     {
+        
+        while (lidarDataQueue.TryDequeue(out string lidarString))
+        {
+            if (lidarProcessor != null)
+            {
+                lidarProcessor.ProcessLidarData(lidarString);
+            }
+            else
+            {
+                Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
+            }
+        }
+
         if (ws == null || !ws.IsAlive)
         {
             return;

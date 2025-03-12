@@ -49,7 +49,7 @@ public class TeleopOmniCommunication : MonoBehaviour
     [SerializeField]
     private LidarProcessor lidarProcessor;
 
-    // concurrent queue to store messages
+    //TODO make the queue a fixed size (drop oldest)
     private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
 
     void Start()
