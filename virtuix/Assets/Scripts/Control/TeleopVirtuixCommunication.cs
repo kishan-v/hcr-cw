@@ -7,6 +7,8 @@ using System.Collections.Concurrent;
 using Unity.XR.CoreUtils;
 using System.Runtime.Remoting.Messaging;
 using System.Collections.Generic;
+using Unity.WebRTC;
+using System.Xml;
 
 public class TeleopOmniCommunication : MonoBehaviour
 {
@@ -23,12 +25,11 @@ public class TeleopOmniCommunication : MonoBehaviour
     public Vector3 movement = new(0, 0, 0);         // Debug
     public Vector3 debugMovement = new(0, 0, 0);    // Debug
     public int noStepThreshold = 10;                // Number of 0 steps before a 'STOP' command is sent
-    public double speedLimit = 0.4;                 // Maximum output speed
     public float stepIncrement = 0.02f;             // Size of a single step
+    public Vector3 speedLimit = new Vector3(0.4f, 0f, 0.4f);
 
     private Vector3 stepMultiplier;
     private Vector3 stepDivisor;
-    private Vector3 speedLimitVec;
     private Vector3 previousMovement = new(0, 0, 0);
     private int noStepCount = 0;
 
@@ -71,7 +72,6 @@ public class TeleopOmniCommunication : MonoBehaviour
         // Calculate movement parameters
         stepMultiplier = new Vector3(1/stepIncrement, 1f/stepIncrement, 1f/stepIncrement);
         stepDivisor = new Vector3(stepIncrement, stepIncrement, stepIncrement);
-        speedLimitVec = Vector3.one * (float)speedLimit;
     }
 
     void ConnectWebSocket()
@@ -155,6 +155,13 @@ public class TeleopOmniCommunication : MonoBehaviour
         return Vector3.Scale(stepped, stepDivisor);
     }
 
+    Vector3 ApplySpeedLimit(Vector3 movement)
+    {
+        Vector3 mangitude = new Vector3(Mathf.Abs(movement.x), Mathf.Abs(movement.y), Mathf.Abs(movement.z));
+        Vector3 sign = new Vector3(Mathf.Sign(movement.x), Mathf.Sign(movement.y), Mathf.Sign(movement.z));
+        return Vector3.Scale(Vector3.Min(mangitude, speedLimit), sign);
+    }
+
     // Rotates sphere so perceived video matches the rotations of dog (delay)
     // TODO: requires getting the dog's rotation
     void RotateSphereMatchDog()
@@ -201,9 +208,9 @@ public class TeleopOmniCommunication : MonoBehaviour
             debugMovement = movement;
 
             movement = ApplyMovingAverage(movement);
-            movement = ApplySteppedMovement(movement);
             movement *= movementMultiplier;                     // Apply multiplier
-            movement = Vector3.Min(movement, speedLimitVec);    // Apply speed limit
+            movement = ApplySteppedMovement(movement);
+            movement = ApplySpeedLimit(movement);
 
             // Check movement above threshold
             if (Math.Abs(movement.x) > movementThreshold) 
