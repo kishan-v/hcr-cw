@@ -98,7 +98,7 @@ public class TeleopJoystickCommunication : MonoBehaviour
             double linear = axis.y * movementMultiplier;
 
             // Rotate the sphere around its Y axis at constant speed
-            float rotationSpeed = RadToDeg((float)angular);
+            float rotationSpeed = -RadToDeg((float)angular);
             sphere.Rotate(rotationSpeed * Time.deltaTime * Vector3.up);
 
             var command = new
