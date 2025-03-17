@@ -21,7 +21,11 @@
 ### Unable to retrieve video from Ricoh Theta
   - Reinstall patched `libuvc` driver:
     - ```bash
-      cd ~/libuvc-theta/build && sudo make install
+      cd ~/libuvc-theta/build
+      cmake ..
+      make
+      sudo make install
+      sudo ldconfig
       ```
 
 ### Peers are unable to connect and stream video

@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using Unity.XR.CoreUtils;
 using System.Runtime.Remoting.Messaging;
+using System.Collections.Generic;
 
 public class TeleopOmniCommunication : MonoBehaviour
 {
@@ -13,31 +14,43 @@ public class TeleopOmniCommunication : MonoBehaviour
     private bool shouldQuit = false;
     private const string RELAYER_URL = "ws://132.145.67.221:9090";
 
-    // Reference to the Virtuix Omni movement component.
-    // This component must be part of your scene (typically on your OmniCharacterController prefab).
+    // Virtuix component (dummy movement component object)
     public OmniMovementComponent omniMovement;
 
-    // A threshold below which we treat movement as zero (to filter out noise).
-    public float movementThreshold = 0.01f;
-    public float movementMultiplier = 10;
+    // MOVEMENT
+    public float movementThreshold = 0.01f;         // Filter out small movements
+    public float movementMultiplier = 10;           // Scale movement
+    public Vector3 movement = new(0, 0, 0);         // Debug
+    public Vector3 debugMovement = new(0, 0, 0);    // Debug
+    public int noStepThreshold = 10;                // Number of 0 steps before a 'STOP' command is sent
+    public double speedLimit = 0.4;                 // Maximum output speed
+    public float stepIncrement = 0.02f;             // Size of a single step
+
+    private Vector3 stepMultiplier;
+    private Vector3 stepDivisor;
+    private Vector3 speedLimitVec;
     private Vector3 previousMovement = new(0, 0, 0);
-    public Vector3 movement = new(0, 0, 0); // Debug
-    public Vector3 debugMovement = new(0, 0, 0); // Debug
     private int noStepCount = 0;
-    public int noStepThreshold = 10;
 
-    public double speedLimit = 0.4;
-    private int steps = 5;
+    // Moving average configuration
+    public int movingAverageWindow = 10;            // Number of frames to average over
+    private Queue<Vector3> movementHistory = new Queue<Vector3>();
+    private Vector3 movingAverageSum = Vector3.zero;
 
-    private float previousRotation = 0;
+    // ROTATION
+    private float previousRadRotation = 0;             // Most recent sent rotation (Radians)
+    private float previousDegRotation = 0;        // Previous rotation to turn sphere (Degrees)  
     public float rotationThreshold = 0.2f;
+    
+    public Transform sphere;
+    private float degRotation = 0;
     private bool rotateFlag = true;
 
     [SerializeField]
     private LidarProcessor lidarProcessor;
 
     // concurrent queue to store messages
-    private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
+    private ConcurrentQueue<byte[]> lidarDataQueue = new ConcurrentQueue<byte[]>();
 
     void Start()
     {
@@ -54,6 +67,11 @@ public class TeleopOmniCommunication : MonoBehaviour
         {
             Debug.LogError("LidarProcessor not found!");
         }
+
+        // Calculate movement parameters
+        stepMultiplier = new Vector3(1/stepIncrement, 1f/stepIncrement, 1f/stepIncrement);
+        stepDivisor = new Vector3(stepIncrement, stepIncrement, stepIncrement);
+        speedLimitVec = Vector3.one * (float)speedLimit;
     }
 
     void ConnectWebSocket()
@@ -67,15 +85,7 @@ public class TeleopOmniCommunication : MonoBehaviour
 
         ws.OnMessage += (sender, e) =>
         {
-            //Debug.Log("Received reply: " + e.Data);
-            //var messageObj = JsonConvert.DeserializeObject<dynamic>(e.Data);
-
-            //if (messageObj != null && messageObj.world_dims != null)
-            //{
-            //    Debug.Log("Enqueuing LiDAR message.");
-            //    lidarDataQueue.Enqueue(e.Data);
-            //}
-            lidarDataQueue.Enqueue(e.Data);
+            lidarDataQueue.Enqueue(e.RawData);
         };
 
         ws.OnError += (sender, e) =>
@@ -103,7 +113,7 @@ public class TeleopOmniCommunication : MonoBehaviour
         }
     }
 
-    float degToRad(float degrees)
+    float DegToRad(float degrees)
     {
         // Convert degrees to radians
         double radians = degrees * (Math.PI / 180.0);
@@ -111,30 +121,54 @@ public class TeleopOmniCommunication : MonoBehaviour
         return (float)Math.IEEERemainder(radians, 2 * Math.PI);
     }
 
-    private Vector3 multiplier = new Vector3(5, 5, 5);
-    private Vector3 divisor = new Vector3(1/5, 1/5, 1/5);
-    private Vector3 speedLimitVec = new Vector3(2/8, 2/8, 2/8);
-
-    Vector3 StepVector(Vector3 vec)
+    float RadToDeg(float radians)
     {
-        // Scale
-        vec = Vector3.Scale(vec, multiplier);
+        // Convert degrees to radians
+        double degrees = radians * (180 / Math.PI);
+        // Normalize angle
+        return (float)Math.IEEERemainder(degrees, 360);
+    }
 
-        // Round
-        vec.x = (float)Math.Round(vec.x);
-        vec.y = (float)Math.Round(vec.y);
-        vec.z = (float)Math.Round(vec.z);
+    Vector3 ApplyMovingAverage(Vector3 newMovement)
+    {
+        // Add new movement to history
+        movementHistory.Enqueue(newMovement);
+        movingAverageSum += newMovement;
+        
+        // Remove oldest entry if over window size
+        if (movementHistory.Count > movingAverageWindow)
+        {
+            Vector3 oldest = movementHistory.Dequeue();
+            movingAverageSum -= oldest;
+        }
+        
+        return movingAverageSum / movementHistory.Count;
+    }
 
-        // Divide
-        vec = Vector3.Scale(vec, divisor);
+    Vector3 ApplySteppedMovement(Vector3 movement)
+    {
+        // Apply stepping
+        Vector3 stepped = Vector3.Scale(movement, stepMultiplier);
+        stepped.x = Mathf.Round(stepped.x);
+        stepped.y = Mathf.Round(stepped.y);
+        stepped.z = Mathf.Round(stepped.z);
+        return Vector3.Scale(stepped, stepDivisor);
+    }
 
-        // Apply movement multiplier
-        //vec = Vector3.Scale(vec, )
+    // Rotates sphere so perceived video matches the rotations of dog (delay)
+    // TODO: requires getting the dog's rotation
+    void RotateSphereMatchDog()
+    {
 
-        // Apply speed limit
-        vec = Vector3.Max(vec, speedLimitVec);
+    }
 
-        return vec;
+    // Rotates sphere so perceived video matches operator's turning
+    // Instantly rotates
+    void RotateSphereMatchVirtuix()
+    {
+        float diff = degRotation - previousDegRotation;
+        sphere.Rotate(Vector3.up * diff);
+        previousDegRotation = degRotation;
     }
 
 
@@ -142,11 +176,11 @@ public class TeleopOmniCommunication : MonoBehaviour
     void Update()
     {
         // LIDAR
-        while (lidarDataQueue.TryDequeue(out string lidarString))
+        while (lidarDataQueue.TryDequeue(out byte[] lidarBytes))
         {
             if (lidarProcessor != null)
             {
-                lidarProcessor.ProcessLidarData(lidarString);
+                lidarProcessor.ProcessLidarData(lidarBytes);
             }
             else
             {
@@ -159,25 +193,28 @@ public class TeleopOmniCommunication : MonoBehaviour
 
         if (omniMovement != null)
         {
-            // Ensure the Omni movement component updates its internal data.
+            // Update omni's data
             omniMovement.GetOmniInputForCharacterMovement();
 
-            // Get movement
+            // MOVEMENT
             movement = omniMovement.GetForwardMovement() + omniMovement.GetStrafeMovement();
             debugMovement = movement;
 
-            if (Math.Abs(movement.x) > movementThreshold) {
+            movement = ApplyMovingAverage(movement);
+            movement = ApplySteppedMovement(movement);
+            movement *= movementMultiplier;                     // Apply multiplier
+            movement = Vector3.Min(movement, speedLimitVec);    // Apply speed limit
+
+            // Check movement above threshold
+            if (Math.Abs(movement.x) > movementThreshold) 
+            {
                 noStepCount = 0;
-                movement = new Vector3((float)-0.4,(float)0.0,(float)0.0);
-                //double steppedLinear = Math.Round(debugMovement.Multiply(Vector3.(steps,steps,steps))) / steps;
-                //steppedLinear = Vector3.Max(steppedLinear, speedLimit);
-                //movement = new Vector3((float)steppedLinear, 0, 0);
             }
             else {
                 noStepCount += 1;
                 if (noStepCount > noStepThreshold)
                 {
-                    movement = new Vector3((float)0.0, (float)0.0, (float)0.0);
+                    movement = Vector3.zero;
                 }
                 else
                 {
@@ -185,25 +222,22 @@ public class TeleopOmniCommunication : MonoBehaviour
                 }
             }
 
-            // Apply movement multiplier
-            movement *= movementMultiplier;
-            // TODO: move speed limit after multip-lier
-            //movement = Vector3.Min(movement, movementLimit);
+            // ROTATION
+            float degRotation = omniMovement.currentOmniYaw;
+            float radRotation = DegToRad(degRotation);
 
-            // Get rotation
-            float radiansRotation = degToRad(omniMovement.currentOmniYaw);
-            // Don't update rotation if it's below the threshold
-            if (Math.Abs((float)radiansRotation - previousRotation) > rotationThreshold) {
+            // Check rotation above threshold
+            if (Math.Abs((float)radRotation - previousRadRotation) > rotationThreshold) {
                 rotateFlag = true;
-                previousRotation = radiansRotation;
+                RotateSphereMatchVirtuix();
+                previousRadRotation = radRotation;
             }
             else {
                 rotateFlag = false;
-                radiansRotation = previousRotation;
+                radRotation = previousRadRotation;
             }
 
-            //Debug.Log("Movement in the x after filtering " + movement.x);
-            // Send message to dog
+            // Send message to dog if change
             if (rotateFlag || (movement != previousMovement))
             {
                 // Build the command payload.
@@ -217,7 +251,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                         // In this protocol, we assume the linear motion is along the x-axis.
                         // Adjust the mapping as needed (e.g. swap axes) to suit your application.
                         linear = new { x = -movement.x, y = 0.0, z = 0.0 },
-                        angular = new { x = 0.0, y = 0.0, z = -radiansRotation },
+                        angular = new { x = 0.0, y = 0.0, z = -radRotation },
                         timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                     }
                 };
