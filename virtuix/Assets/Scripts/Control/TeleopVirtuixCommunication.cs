@@ -10,9 +10,9 @@ using System.Collections.Generic;
 
 public class TeleopOmniCommunication : MonoBehaviour
 {
-    private WebSocket ws;
-    private bool shouldQuit = false;
-    private const string RELAYER_URL = "ws://132.145.67.221:9090";
+    // private WebSocket ws;
+    // private bool shouldQuit = false;
+    // private const string RELAYER_URL = "ws://132.145.67.221:9090";
 
     // Virtuix component (dummy movement component object)
     public OmniMovementComponent omniMovement;
@@ -49,12 +49,9 @@ public class TeleopOmniCommunication : MonoBehaviour
     [SerializeField]
     private LidarProcessor lidarProcessor;
 
-    // concurrent queue to store messages
-    private ConcurrentQueue<byte[]> lidarDataQueue = new ConcurrentQueue<byte[]>();
-
     void Start()
     {
-        ConnectWebSocket();
+        // ConnectWebSocket();
         
         // Initialize the OmniMovementComponent
         omniMovement = GetComponent<OmniMovementComponent>();
@@ -63,55 +60,12 @@ public class TeleopOmniCommunication : MonoBehaviour
             Debug.LogError("OmniMovementComponent not found!");
         }
 
-        if (lidarProcessor == null)
-        {
-            Debug.LogError("LidarProcessor not found!");
-        }
-
         // Calculate movement parameters
         stepMultiplier = new Vector3(1/stepIncrement, 1f/stepIncrement, 1f/stepIncrement);
         stepDivisor = new Vector3(stepIncrement, stepIncrement, stepIncrement);
         speedLimitVec = Vector3.one * (float)speedLimit;
     }
 
-    void ConnectWebSocket()
-    {
-        ws = new WebSocket(RELAYER_URL);
-
-        ws.OnOpen += (sender, e) =>
-        {
-            Debug.Log("Connected to server.");
-        };
-
-        ws.OnMessage += (sender, e) =>
-        {
-            lidarDataQueue.Enqueue(e.RawData);
-        };
-
-        ws.OnError += (sender, e) =>
-        {
-            Debug.LogError("Error: " + e.Message);
-        };
-
-        ws.OnClose += (sender, e) =>
-        {
-            Debug.Log($"Connection closed. Code: {e.Code} Reason: {e.Reason}");
-            if (!shouldQuit)
-            {
-                // Try to reconnect after a delay.
-                Invoke("ConnectWebSocket", 5f);
-            }
-        };
-
-        try
-        {
-            ws.ConnectAsync();
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError("Exception during connect: " + ex.Message);
-        }
-    }
 
     float DegToRad(float degrees)
     {
@@ -175,22 +129,10 @@ public class TeleopOmniCommunication : MonoBehaviour
 
     void Update()
     {
-        // LIDAR
-        while (lidarDataQueue.TryDequeue(out byte[] lidarBytes))
-        {
-            if (lidarProcessor != null)
-            {
-                lidarProcessor.ProcessLidarData(lidarBytes);
-            }
-            else
-            {
-                Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
-            }
-        }
-
-        if (ws == null || !ws.IsAlive)
+        
+        if (ControlModeManager.activeMode != ControlMode.Virtuix)
             return;
-
+            
         if (omniMovement != null)
         {
             // Update omni's data
@@ -206,11 +148,12 @@ public class TeleopOmniCommunication : MonoBehaviour
             movement = Vector3.Min(movement, speedLimitVec);    // Apply speed limit
 
             // Check movement above threshold
-            if (Math.Abs(movement.x) > movementThreshold) 
+            if (Math.Abs(movement.x) > movementThreshold)
             {
                 noStepCount = 0;
             }
-            else {
+            else
+            {
                 noStepCount += 1;
                 if (noStepCount > noStepThreshold)
                 {
@@ -227,12 +170,14 @@ public class TeleopOmniCommunication : MonoBehaviour
             float radRotation = DegToRad(degRotation);
 
             // Check rotation above threshold
-            if (Math.Abs((float)radRotation - previousRadRotation) > rotationThreshold) {
+            if (Math.Abs((float)radRotation - previousRadRotation) > rotationThreshold)
+            {
                 rotateFlag = true;
                 RotateSphereMatchVirtuix();
                 previousRadRotation = radRotation;
             }
-            else {
+            else
+            {
                 rotateFlag = false;
                 radRotation = previousRadRotation;
             }
@@ -259,7 +204,8 @@ public class TeleopOmniCommunication : MonoBehaviour
                 string message = JsonConvert.SerializeObject(command);
                 try
                 {
-                    ws.Send(message);
+                    // ws.Send(message);
+                    WebSocketController.Instance.SendMessage(message);
                     Debug.Log("Sent command: " + message);
                 }
                 catch (Exception ex)
@@ -271,12 +217,4 @@ public class TeleopOmniCommunication : MonoBehaviour
         }
     }
 
-    private void OnDestroy()
-    {
-        shouldQuit = true;
-        if (ws != null)
-        {
-            ws.Close();
-        }
-    }
 }
