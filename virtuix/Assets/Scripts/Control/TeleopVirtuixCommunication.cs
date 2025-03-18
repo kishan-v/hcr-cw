@@ -10,10 +10,6 @@ using System.Collections.Generic;
 
 public class TeleopOmniCommunication : MonoBehaviour
 {
-    // private WebSocket ws;
-    // private bool shouldQuit = false;
-    // private const string RELAYER_URL = "ws://132.145.67.221:9090";
-
     // Virtuix component (dummy movement component object)
     public OmniMovementComponent omniMovement;
 
@@ -109,8 +105,7 @@ public class TeleopOmniCommunication : MonoBehaviour
         return Vector3.Scale(Vector3.Min(mangitude, speedLimit), sign);
     }
 
-    // Rotates sphere so perceived video matches operator's turning
-    // Instantly rotates
+    // Rotates sphere so forward of operator is always forward of the sphere
     void RotateSphereMatchVirtuix()
     {
         float diff = previousDegRotation - degRotation;
@@ -185,8 +180,6 @@ public class TeleopOmniCommunication : MonoBehaviour
                     type = "omni",
                     msg = new
                     {
-                        // In this protocol, we assume the linear motion is along the x-axis.
-                        // Adjust the mapping as needed (e.g. swap axes) to suit your application.
                         linear = new { x = -movement.x, y = 0.0, z = 0.0 },
                         angular = new { x = 0.0, y = 0.0, z = -radRotation },
                         timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
