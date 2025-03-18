@@ -11,7 +11,7 @@ public class WebSocketController : MonoBehaviour
     public LidarProcessor lidarProcessor;
 
     // Queue to store incoming LiDAR messages.
-    private ConcurrentQueue<string> lidarDataQueue = new ConcurrentQueue<string>();
+    private ConcurrentQueue<byte[]> lidarDataQueue = new ConcurrentQueue<byte[]>();
     private bool shouldQuit = false;
 
     void Awake()
@@ -39,15 +39,15 @@ public class WebSocketController : MonoBehaviour
 
         ws.OnMessage += (sender, e) =>
         {
-            Debug.Log("Received message: " + e.Data);
+            //Debug.Log("Received message: " + e.Data);
             // If the queue is full (max 5 items), remove the oldest message.
             if(lidarDataQueue.Count >= 5)
             {
-                string discarded;
+                byte[] discarded;
                 lidarDataQueue.TryDequeue(out discarded);
             }
             // Enqueue the new LiDAR data.
-            lidarDataQueue.Enqueue(e.Data);
+            lidarDataQueue.Enqueue(e.RawData);
         };
 
         ws.OnError += (sender, e) =>
@@ -74,7 +74,7 @@ public class WebSocketController : MonoBehaviour
         }
     }
 
-    public void SendMessage(string message)
+    public void SendMessageWebsocket(string message)
     {
         if (ws != null && ws.IsAlive)
         {
@@ -90,7 +90,7 @@ public class WebSocketController : MonoBehaviour
     void Update()
     {
         // Process one LiDAR message per frame (or adjust as needed).
-        if (lidarProcessor != null && lidarDataQueue.TryDequeue(out string lidarData))
+        if (lidarProcessor != null && lidarDataQueue.TryDequeue(out byte[] lidarData))
         {
             lidarProcessor.ProcessLidarData(lidarData);
         }

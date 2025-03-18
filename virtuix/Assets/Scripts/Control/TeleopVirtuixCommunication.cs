@@ -8,6 +8,7 @@ using Unity.XR.CoreUtils;
 using System.Runtime.Remoting.Messaging;
 using System.Collections.Generic;
 
+
 public class TeleopOmniCommunication : MonoBehaviour
 {
     // private WebSocket ws;
@@ -46,8 +47,8 @@ public class TeleopOmniCommunication : MonoBehaviour
     private float degRotation = 0;
     private bool rotateFlag = true;
 
-    [SerializeField]
-    private LidarProcessor lidarProcessor;
+    //[SerializeField]
+    //private LidarProcessor lidarProcessor;
 
     void Start()
     {
@@ -205,8 +206,8 @@ public class TeleopOmniCommunication : MonoBehaviour
                 try
                 {
                     // ws.Send(message);
-                    WebSocketController.Instance.SendMessage(message);
-                    Debug.Log("Sent command: " + message);
+                    WebSocketController.Instance.SendMessageWebsocket(message);
+                    //Debug.Log("Sent command: " + message);
                 }
                 catch (Exception ex)
                 {

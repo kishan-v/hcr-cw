@@ -57,8 +57,8 @@ public class TeleopJoystickCommunication : MonoBehaviour
             string message = JsonConvert.SerializeObject(command);
             try
             {
-                WebSocketController.Instance.SendMessage(message)
-                Debug.Log("Sent command: " + message);
+                WebSocketController.Instance.SendMessageWebsocket(message);
+                //Debug.Log("Sent command: " + message);
             }
             catch (Exception ex)
             {
