@@ -73,12 +73,20 @@ public class TeleopOmniCommunication : MonoBehaviour
         return (float)Math.IEEERemainder(radians, 2 * Math.PI);
     }
 
-    float RadToDeg(float radians)
+    //float RadToDeg(float radians)
+    //{
+    //    // Convert degrees to radians
+    //    double degrees = radians * (180 / Math.PI);
+    //    // Normalize angle
+    //    return (float)Math.IEEERemainder(degrees, 360);
+    //}
+
+    Vector3 ApplyAbs(Vector3 movement)
     {
-        // Convert degrees to radians
-        double degrees = radians * (180 / Math.PI);
-        // Normalize angle
-        return (float)Math.IEEERemainder(degrees, 360);
+        movement.x = Mathf.Abs(movement.x);
+        movement.y = Mathf.Abs(movement.y);
+        movement.z = Mathf.Abs(movement.z);
+        return movement;
     }
 
     Vector3 ApplyMovingAverage(Vector3 newMovement)
@@ -125,14 +133,14 @@ public class TeleopOmniCommunication : MonoBehaviour
     // Instantly rotates
     void RotateSphereMatchVirtuix()
     {
-        float diff = degRotation - previousDegRotation;
+        float diff = previousDegRotation - degRotation;
         sphere.Rotate(Vector3.up * diff);
         previousDegRotation = degRotation;
     }
 
 
 
-    void Update()
+    void FixedUpdate()
     {
         
         if (ControlModeManager.activeMode != ControlMode.Virtuix)
@@ -147,6 +155,7 @@ public class TeleopOmniCommunication : MonoBehaviour
             movement = omniMovement.GetForwardMovement() + omniMovement.GetStrafeMovement();
             debugMovement = movement;
 
+            //movement = ApplyAbs(movement);
             movement = ApplyMovingAverage(movement);
             movement *= movementMultiplier;                     // Apply multiplier
             movement = ApplySteppedMovement(movement);
@@ -200,7 +209,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                     {
                         // In this protocol, we assume the linear motion is along the x-axis.
                         // Adjust the mapping as needed (e.g. swap axes) to suit your application.
-                        linear = new { x = movement.x, y = 0.0, z = 0.0 },
+                        linear = new { x = -movement.x, y = 0.0, z = 0.0 },
                         angular = new { x = 0.0, y = 0.0, z = -radRotation },
                         timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                     }

@@ -40,17 +40,17 @@ public class WebSocketController : MonoBehaviour
         ws.OnMessage += (sender, e) =>
         {
             //Debug.Log("Received message: " + e.Data);
-            // If the queue is full (max 5 items), remove the oldest message.
-            // if(lidarDataQueue.Count >= 5)
-            // {
-            //     Debug.Log("Discarding Lidar");
-            //     byte[] discarded;
-            //     lidarDataQueue.TryDequeue(out discarded);
-            // }
-            // // Enqueue the new LiDAR data.
-            // lidarDataQueue.Enqueue(e.RawData);
+            //If the queue is full(max 5 items), remove the oldest message.
+             if (lidarDataQueue.Count >= 5)
+            {
+                Debug.Log("Discarding Lidar");
+                byte[] discarded;
+                lidarDataQueue.TryDequeue(out discarded);
+            }
+            // Enqueue the new LiDAR data.
+            lidarDataQueue.Enqueue(e.RawData);
 
-            lidarProcessor.ProcessLidarData(e.RawData);
+            //lidarProcessor.ProcessLidarData(e.RawData);
         };
 
         ws.OnError += (sender, e) =>
@@ -90,14 +90,14 @@ public class WebSocketController : MonoBehaviour
         }
     }
 
-    // void Update()
-    // {
-    //     // Process one LiDAR message per frame
-    //     if (lidarProcessor != null && lidarDataQueue.TryDequeue(out byte[] lidarData))
-    //     {
-    //         lidarProcessor.ProcessLidarData(lidarData);
-    //     }
-    // }
+    void Update()
+    {
+        // Process one LiDAR message per frame
+        if (lidarProcessor != null && lidarDataQueue.TryDequeue(out byte[] lidarData))
+        {
+            lidarProcessor.ProcessLidarData(lidarData);
+        }
+    }
 
     void OnDestroy()
     {
