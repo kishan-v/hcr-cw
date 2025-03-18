@@ -4,7 +4,6 @@ public enum ControlMode
 {
     Virtuix,
     Joystick,
-
     None
 }
 
@@ -15,12 +14,11 @@ public class ControlModeManager : MonoBehaviour
 
     void Update()
     {
-        buttonPressed =
         // Toggle control mode when T is pressed.
         if (Input.GetKeyDown(KeyCode.X))
         {
             activeMode = ControlMode.None;
-            Debug.Log("Switched to NO TRANSMIT")
+            Debug.Log("Switched to NO TRANSMIT");
 
         }
         if (Input.GetKeyDown(KeyCode.V))

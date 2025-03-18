@@ -66,6 +66,7 @@ public class TeleopJoystickCommunication : MonoBehaviour
                 }
             };
 
+            Debug.Log("HERE2"); // DOESN'T GET HERE
             string message = JsonConvert.SerializeObject(command);
             try
             {

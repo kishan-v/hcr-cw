@@ -171,7 +171,7 @@ public class TeleopOmniCommunication : MonoBehaviour
             }
 
             // ROTATION
-            float degRotation = omniMovement.currentOmniYaw;
+            degRotation = omniMovement.currentOmniYaw;
             float radRotation = DegToRad(degRotation);
 
             // Check rotation above threshold
@@ -200,7 +200,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                     {
                         // In this protocol, we assume the linear motion is along the x-axis.
                         // Adjust the mapping as needed (e.g. swap axes) to suit your application.
-                        linear = new { x = -movement.x, y = 0.0, z = 0.0 },
+                        linear = new { x = movement.x, y = 0.0, z = 0.0 },
                         angular = new { x = 0.0, y = 0.0, z = -radRotation },
                         timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                     }
@@ -217,8 +217,8 @@ public class TeleopOmniCommunication : MonoBehaviour
                 {
                     Debug.LogError("Error sending message: " + ex.Message);
                 }
+                previousMovement = movement;
             }
-            previousMovement = movement;
         }
     }
 
