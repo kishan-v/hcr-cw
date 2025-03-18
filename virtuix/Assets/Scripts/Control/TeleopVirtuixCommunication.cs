@@ -209,9 +209,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                 string message = JsonConvert.SerializeObject(command);
                 try
                 {
-                    // ws.Send(message);
                     WebSocketController.Instance.SendMessageWebsocket(message);
-                    //Debug.Log("Sent command: " + message);
                 }
                 catch (Exception ex)
                 {

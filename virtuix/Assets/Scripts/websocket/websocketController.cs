@@ -43,6 +43,7 @@ public class WebSocketController : MonoBehaviour
             // If the queue is full (max 5 items), remove the oldest message.
             if(lidarDataQueue.Count >= 5)
             {
+                Debug.Log("Discarding Lidar");
                 byte[] discarded;
                 lidarDataQueue.TryDequeue(out discarded);
             }
@@ -89,7 +90,7 @@ public class WebSocketController : MonoBehaviour
 
     void Update()
     {
-        // Process one LiDAR message per frame (or adjust as needed).
+        // Process one LiDAR message per frame
         if (lidarProcessor != null && lidarDataQueue.TryDequeue(out byte[] lidarData))
         {
             lidarProcessor.ProcessLidarData(lidarData);
