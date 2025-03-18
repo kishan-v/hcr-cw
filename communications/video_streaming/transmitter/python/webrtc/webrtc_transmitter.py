@@ -33,14 +33,12 @@ DEFAULT_VIDEO_SOURCE = "webcam"  # "webcam" or "theta". Can also be specified as
 # TURN_SERVER_URI = "turn:132.145.67.221:3478"
 
 MP4_SOURCE = "test_video.mp4"
-DEFAULT_VIDEO_SOURCE = "webcam"  # "webcam" or "theta" or "mp4". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
+DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta" or "mp4". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
 
 
 COMP_VIS_MODE = True  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
 CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a frame.
 COMP_VIS_FPS_CAP = 30
-FRAME_PATH = r".\communications\video_streaming\transmitter\python\webrtc\current_frame"
-TEMP_PATH = r".\communications\video_streaming\transmitter\python\webrtc\current_frame\temp_frame.jpg"
 
 
 from multiprocessing import shared_memory

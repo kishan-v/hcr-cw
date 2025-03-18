@@ -5,8 +5,10 @@ import time
 import ast
 import cv2
 
-VENV_PYTHON = r".\communications\video_streaming\.venv\Scripts\python.exe"
-CHILD_SCRIPT = r".\communications\video_streaming\transmitter\python\webrtc\child.py"
+VENV_PYTHON = "./communications/video_streaming/.venv/bin/python"
+
+CHILD_SCRIPT = "./communications/video_streaming/transmitter/python/webrtc/child.py"
+
 
 class annotation:
     def __init__(self):

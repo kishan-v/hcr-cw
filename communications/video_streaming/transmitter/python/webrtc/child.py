@@ -9,7 +9,6 @@ from multiprocessing import shared_memory
 MODEL_PATH = "yolo11n-pose.pt"
 FPS_CAP = 30  # Set the desired FPS cap here
 
-FRAME_PATH = r".\communications\video_streaming\transmitter\python\webrtc\current_frame"
 
 
 from multiprocessing import shared_memory
@@ -33,7 +32,7 @@ lock_file = open("frame_lock", "rb")
 
 
 
-def process_frame(frame_path):
+def process_frame():
     """Loads YOLO model, processes frame, and outputs keypoints."""
     model = YOLO(MODEL_PATH)
 
@@ -58,7 +57,6 @@ def process_frame(frame_path):
 def yolo_worker():
     """Continuously process frames with FPS cap logic."""
     last_frame_time = time.time()  # Track the time of the last frame
-    frame_path = r".\communications\video_streaming\transmitter\python\webrtc\current_frame\frame.jpg"
     while True:
             current_time = time.time()
             elapsed_time = current_time - last_frame_time
@@ -67,7 +65,7 @@ def yolo_worker():
             if elapsed_time < 1 / FPS_CAP:
                 time.sleep(1 / FPS_CAP - elapsed_time)  # Sleep to maintain FPS cap
 
-            process_frame(frame_path)  # Process the frame
+            process_frame()  # Process the frame
             last_frame_time = time.time()  # Update last frame time
 
 if __name__ == "__main__":
