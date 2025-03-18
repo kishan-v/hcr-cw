@@ -45,13 +45,8 @@ public class TeleopOmniCommunication : MonoBehaviour
     private float degRotation = 0;
     private bool rotateFlag = true;
 
-    //[SerializeField]
-    //private LidarProcessor lidarProcessor;
-
     void Start()
-    {
-        // ConnectWebSocket();
-        
+    {        
         // Initialize the OmniMovementComponent
         omniMovement = GetComponent<OmniMovementComponent>();
         if (omniMovement == null)
@@ -72,14 +67,6 @@ public class TeleopOmniCommunication : MonoBehaviour
         // Normalize angle
         return (float)Math.IEEERemainder(radians, 2 * Math.PI);
     }
-
-    //float RadToDeg(float radians)
-    //{
-    //    // Convert degrees to radians
-    //    double degrees = radians * (180 / Math.PI);
-    //    // Normalize angle
-    //    return (float)Math.IEEERemainder(degrees, 360);
-    //}
 
     Vector3 ApplyAbs(Vector3 movement)
     {
@@ -122,13 +109,6 @@ public class TeleopOmniCommunication : MonoBehaviour
         return Vector3.Scale(Vector3.Min(mangitude, speedLimit), sign);
     }
 
-    // Rotates sphere so perceived video matches the rotations of dog (delay)
-    // TODO: requires getting the dog's rotation
-    void RotateSphereMatchDog()
-    {
-
-    }
-
     // Rotates sphere so perceived video matches operator's turning
     // Instantly rotates
     void RotateSphereMatchVirtuix()
@@ -138,11 +118,9 @@ public class TeleopOmniCommunication : MonoBehaviour
         previousDegRotation = degRotation;
     }
 
-
-
     void FixedUpdate()
     {
-        
+        // Check in Virtuix mode
         if (ControlModeManager.activeMode != ControlMode.Virtuix)
             return;
             
@@ -157,7 +135,7 @@ public class TeleopOmniCommunication : MonoBehaviour
 
             //movement = ApplyAbs(movement);
             movement = ApplyMovingAverage(movement);
-            movement *= movementMultiplier;                     // Apply multiplier
+            movement *= movementMultiplier;
             movement = ApplySteppedMovement(movement);
             movement = ApplySpeedLimit(movement);
 
@@ -228,5 +206,4 @@ public class TeleopOmniCommunication : MonoBehaviour
             }
         }
     }
-
 }
