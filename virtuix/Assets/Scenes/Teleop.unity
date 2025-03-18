@@ -580,6 +580,7 @@ MonoBehaviour:
   touch:
     actionPath: /actions/default/in/JoystickTouch
     needsReinit: 0
+  sphere: {fileID: 740027166}
   movementMultiplier: 0.4
   deadzone: 0.1
 --- !u!114 &846404624
@@ -659,6 +660,7 @@ MonoBehaviour:
   touch:
     actionPath: /actions/default/in/JoystickTouch
     needsReinit: 0
+  sphere: {fileID: 740027166}
   movementMultiplier: 0.4
   deadzone: 0.1
 --- !u!114 &953891788
@@ -1107,7 +1109,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   omniMovement: {fileID: 1559928326}
   movementThreshold: 0
-  movementMultiplier: 1
+  movementMultiplier: 10
   movement: {x: 0, y: 0, z: 0}
   debugMovement: {x: 0, y: 0, z: 0}
   noStepThreshold: 3
