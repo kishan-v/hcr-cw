@@ -19,24 +19,45 @@ from aiortc import (
     RTCPeerConnection,
     RTCSessionDescription,
 )
-from computer_vision import annotation
+from middle import annotation
 from websocket_signaling import WebSocketSignaling
+import numpy as np
+
 
 WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
 TURN_SERVER_URI = "turn:130.162.176.219:3478"
-DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
+DEFAULT_VIDEO_SOURCE = "webcam"  # "webcam" or "theta". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
 
 # Dhruv's Oracle Server
 # WEBSOCKET_SIGNALLING_URI = "ws://132.145.67.221:8765"
 # TURN_SERVER_URI = "turn:132.145.67.221:3478"
 
 MP4_SOURCE = "test_video.mp4"
-DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta" or "mp4". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
+DEFAULT_VIDEO_SOURCE = "webcam"  # "webcam" or "theta" or "mp4". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
 
 
 COMP_VIS_MODE = True  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
 CV_INTERVAL_SECS = 0.1  # Minimum seconds between running CV processing on a frame.
 COMP_VIS_FPS_CAP = 30
+FRAME_PATH = r".\communications\video_streaming\transmitter\python\webrtc\current_frame"
+TEMP_PATH = r".\communications\video_streaming\transmitter\python\webrtc\current_frame\temp_frame.jpg"
+
+
+from multiprocessing import shared_memory
+import os
+
+if os.name == 'nt':
+    import msvcrt  # Windows file locking
+else:
+    import fcntl  # Unix file locking
+
+shape = (480, 640, 3)
+size = np.prod(shape)
+
+# Create shared memory
+shm = shared_memory.SharedMemory(name="frame_buffer", create=True, size=int(size))
+frame_array = np.ndarray(shape, dtype=np.uint8, buffer=shm.buf)
+lock_file = open("frame_lock", "wb")
 
 
 class VideoCameraTrack(MediaStreamTrack):
@@ -72,7 +93,7 @@ class VideoCameraTrack(MediaStreamTrack):
         # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
 
         if COMP_VIS_MODE:
-            self.compVis = annotation(fps_cap=COMP_VIS_FPS_CAP)
+            self.compVis = annotation()
 
     async def recv(self) -> av.VideoFrame:
         pts, time_base = await self.next_timestamp()
@@ -83,6 +104,24 @@ class VideoCameraTrack(MediaStreamTrack):
         ret, frame = self.cap.read()
         if not ret:
             raise Exception("Failed to read frame from webcam")
+        
+
+        #frame = np.random.randint(0, 256, shape, dtype=np.uint8)
+
+        # Lock before writing
+        if os.name == 'nt':
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+
+        np.copyto(frame_array, frame)  # Write frame
+
+        # Unlock after writing
+        if os.name == 'nt':
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
 
         if COMP_VIS_MODE:
             self.compVis.last_frame = frame.copy()
