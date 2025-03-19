@@ -25,6 +25,8 @@ class WebsocketNode(Node):
         self.websocket = None
         self.loop = None
 
+        self.stop_count = 0
+
         self.lidar_sub = self.create_subscription(
             String,         
             '/occupancy_grid',
@@ -49,7 +51,7 @@ class WebsocketNode(Node):
 
             # Pack the booleans
             packed_data = packer(msg.data)
-            # self.get_logger().info(f"Sending lidar data of size: {len(packed_data)}")
+            self.get_logger().info(f"Sending lidar data of size: {len(packed_data)}")
 
             # Only send if the websocket is connected.
             if self.websocket is not None:
@@ -101,6 +103,7 @@ class WebsocketNode(Node):
                 if self.locked:
                     self.get_logger().info("Keepalive received. Unlocking movement commands.")
                     self.locked = False
+                    self.stop_count = 0
                 return
 
             if self.locked == True:
@@ -134,7 +137,8 @@ class WebsocketNode(Node):
     def check_keepalive(self):
         now = self.get_clock().now()
         elapsed = (now - self.last_keepalive_time).nanoseconds / 1e9
-        if elapsed > self.keepalive_timeout:
+        if elapsed > self.keepalive_timeout and self.stop_count < 3:
+                self.stop_count += 1
                 self.get_logger().warn("Keepalive timeout. Locking movement commands.")
                 self.locked = True
                 self.send_stop_command()
@@ -144,7 +148,6 @@ class WebsocketNode(Node):
         twist.linear.x = twist.linear.y = twist.linear.z = 0.0
         twist.angular.x = twist.angular.y = twist.angular.z = 0.0
         self.joystick_pub.publish(twist)
-        self.virtuix_linear_pub.publish(twist)
         self.virtuix_linear_pub.publish(twist)
         self.get_logger().info("Published stop command due to keepalive timeout.")
 
