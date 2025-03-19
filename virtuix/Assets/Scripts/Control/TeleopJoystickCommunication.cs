@@ -16,8 +16,16 @@ public class TeleopJoystickCommunication : MonoBehaviour
 
     // Deadzone threshold
     public float deadzone = 0.1f;
+    public Transform sphere;
+    public Transform vrOperator;
 
-    void FixedUpdate()
+    float RadToDeg(float radians)
+    {
+        double degrees = radians * (180 / Math.PI);
+        return (float)Math.IEEERemainder(degrees, 180);
+    }
+
+    void Update()
     {
 
         if (ControlModeManager.activeMode != ControlMode.Joystick)
@@ -38,6 +46,11 @@ public class TeleopJoystickCommunication : MonoBehaviour
             // Get joystick inputs
             double angular = axis.x;
             double linear = axis.y * movementMultiplier;
+
+            // Rotate sphere and operator for alignment
+            float rotationSpeed = RadToDeg((float)angular);
+            sphere.Rotate(rotationSpeed * Time.deltaTime * Vector3.up);
+            vrOperator.Rotate(rotationSpeed * Time.deltaTime * Vector3.up);
 
             // Deadzone
             if (Math.Abs(angular) < deadzone)

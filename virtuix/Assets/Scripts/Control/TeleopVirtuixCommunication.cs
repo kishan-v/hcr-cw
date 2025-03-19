@@ -108,7 +108,7 @@ public class TeleopOmniCommunication : MonoBehaviour
     // Rotates sphere so forward of operator is always forward of the sphere
     void RotateSphereMatchVirtuix()
     {
-        float diff = previousDegRotation - degRotation;
+        float diff = degRotation - previousDegRotation;
         sphere.Rotate(Vector3.up * diff);
         previousDegRotation = degRotation;
     }

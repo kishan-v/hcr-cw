@@ -93,18 +93,6 @@ public class WebSocketController : MonoBehaviour
     }
 
 
-    public void SendKeepAlive()
-    {
-        // Minimal keepalive message payload.
-        string keepAliveMessage = "{\"type\": \"keepalive\"}";
-        if (ws != null && ws.IsAlive)
-        {
-            ws.Send(keepAliveMessage);
-            Debug.Log("Sent keepalive message");
-        }
-    }
-
-
     void Update()
     {
         // Process one LiDAR message per frame
@@ -117,7 +105,8 @@ public class WebSocketController : MonoBehaviour
         {
             if (Time.time - lastKeepAliveTime >= keepAliveInterval)
             {
-                SendKeepAlive();
+                string keepAliveMessage = "{\"type\": \"keepalive\"}";
+                SendMessageWebsocket(keepAliveMessage);
                 lastKeepAliveTime = Time.time;
             }
         }
