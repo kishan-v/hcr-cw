@@ -90,7 +90,11 @@ class VideoCameraTrack(MediaStreamTrack):
         # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
 
         if COMP_VIS_MODE:
-            self.compVis = annotation()
+            try:
+                self.compVis = annotation()
+            except:
+                COMP_VIS_MODE = False
+                
 
     async def recv(self) -> av.VideoFrame:
         pts, time_base = await self.next_timestamp()
