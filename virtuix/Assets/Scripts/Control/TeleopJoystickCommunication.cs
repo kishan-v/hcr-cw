@@ -1,14 +1,10 @@
 using UnityEngine;
 using System;
-using WebSocketSharp;
 using Newtonsoft.Json;
 using Valve.VR;
 
 public class TeleopJoystickCommunication : MonoBehaviour
 {
-    private WebSocket ws;
-    private bool shouldQuit = false;
-    private const string RELAYER_URL = "ws://132.145.67.221:9090";
 
     // Which controller to use.
     public SteamVR_Input_Sources handType = SteamVR_Input_Sources.LeftHand;
@@ -21,63 +17,18 @@ public class TeleopJoystickCommunication : MonoBehaviour
     // Deadzone threshold
     public float deadzone = 0.1f;
 
-    void Start()
-    {
-        ConnectWebSocket();
-    }
-
-    void ConnectWebSocket()
-    {
-        ws = new WebSocket(RELAYER_URL);
-
-        ws.OnOpen += (sender, e) =>
-        {
-            Debug.Log("Connected to server.");
-        };
-
-        ws.OnMessage += (sender, e) =>
-        {
-            //Debug.Log("Received reply: " + e.Data);
-        };
-
-        ws.OnError += (sender, e) =>
-        {
-            Debug.LogError("Error: " + e.Message);
-        };
-
-        ws.OnClose += (sender, e) =>
-        {
-            Debug.Log($"Connection closed. Code: {e.Code} Reason: {e.Reason}");
-            if (!shouldQuit)
-            {
-                // Try to reconnect after a delay.
-                Invoke("ConnectWebSocket", 5f);
-            }
-        };
-
-        try
-        {
-            ws.ConnectAsync();
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError("Exception during connect: " + ex.Message);
-        }
-    }
-
     void Update()
     {
-        if (ws == null || !ws.IsAlive)
-        {
+
+        if (ControlModeManager.activeMode != ControlMode.Joystick)
             return;
-        }
 
         // When joystick clicked 
         if (touch.GetState(handType))
         {
             // Get the joystick's trackpad touch position.
             Vector2 axis = joystick.GetAxis(handType);
-            
+
             // Deadzone to avoid sending commands on minor joystick noise.
             if (axis.magnitude < deadzone)
             {
@@ -87,6 +38,16 @@ public class TeleopJoystickCommunication : MonoBehaviour
             // Get joystick inputs
             double angular = axis.x;
             double linear = axis.y * movementMultiplier;
+
+            // Deadzone
+            if (Math.Abs(angular) < deadzone)
+            {
+                angular = 0;
+            }
+            if (Math.Abs(linear) < deadzone)
+            {
+                linear = 0;
+            }
 
             var command = new
             {
@@ -104,8 +65,7 @@ public class TeleopJoystickCommunication : MonoBehaviour
             string message = JsonConvert.SerializeObject(command);
             try
             {
-                ws.Send(message);
-                Debug.Log("Sent command: " + message);
+                WebSocketController.Instance.SendMessageWebsocket(message);
             }
             catch (Exception ex)
             {
@@ -117,8 +77,6 @@ public class TeleopJoystickCommunication : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Q))
         {
             Debug.Log("Quitting...");
-            shouldQuit = true;
-            ws.Close();
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else
@@ -127,12 +85,4 @@ public class TeleopJoystickCommunication : MonoBehaviour
         }
     }
 
-    private void OnDestroy()
-    {
-        shouldQuit = true;
-        if (ws != null)
-        {
-            ws.Close();
-        }
-    }
 }

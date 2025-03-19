@@ -1,19 +1,15 @@
 using UnityEngine;
 using static System.Math;
 using System;
-using WebSocketSharp;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using Unity.XR.CoreUtils;
 using System.Runtime.Remoting.Messaging;
 using System.Collections.Generic;
 
+
 public class TeleopOmniCommunication : MonoBehaviour
 {
-    private WebSocket ws;
-    private bool shouldQuit = false;
-    private const string RELAYER_URL = "ws://132.145.67.221:9090";
-
     // Virtuix component (dummy movement component object)
     public OmniMovementComponent omniMovement;
 
@@ -23,12 +19,11 @@ public class TeleopOmniCommunication : MonoBehaviour
     public Vector3 movement = new(0, 0, 0);         // Debug
     public Vector3 debugMovement = new(0, 0, 0);    // Debug
     public int noStepThreshold = 10;                // Number of 0 steps before a 'STOP' command is sent
-    public double speedLimit = 0.4;                 // Maximum output speed
     public float stepIncrement = 0.02f;             // Size of a single step
+    public Vector3 speedLimit = new Vector3(0.4f, 0f, 0.4f);
 
     private Vector3 stepMultiplier;
     private Vector3 stepDivisor;
-    private Vector3 speedLimitVec;
     private Vector3 previousMovement = new(0, 0, 0);
     private int noStepCount = 0;
 
@@ -46,16 +41,8 @@ public class TeleopOmniCommunication : MonoBehaviour
     private float degRotation = 0;
     private bool rotateFlag = true;
 
-    [SerializeField]
-    private LidarProcessor lidarProcessor;
-
-    // concurrent queue to store messages
-    private ConcurrentQueue<byte[]> lidarDataQueue = new ConcurrentQueue<byte[]>();
-
     void Start()
-    {
-        ConnectWebSocket();
-        
+    {        
         // Initialize the OmniMovementComponent
         omniMovement = GetComponent<OmniMovementComponent>();
         if (omniMovement == null)
@@ -63,55 +50,11 @@ public class TeleopOmniCommunication : MonoBehaviour
             Debug.LogError("OmniMovementComponent not found!");
         }
 
-        if (lidarProcessor == null)
-        {
-            Debug.LogError("LidarProcessor not found!");
-        }
-
         // Calculate movement parameters
         stepMultiplier = new Vector3(1/stepIncrement, 1f/stepIncrement, 1f/stepIncrement);
         stepDivisor = new Vector3(stepIncrement, stepIncrement, stepIncrement);
-        speedLimitVec = Vector3.one * (float)speedLimit;
     }
 
-    void ConnectWebSocket()
-    {
-        ws = new WebSocket(RELAYER_URL);
-
-        ws.OnOpen += (sender, e) =>
-        {
-            Debug.Log("Connected to server.");
-        };
-
-        ws.OnMessage += (sender, e) =>
-        {
-            lidarDataQueue.Enqueue(e.RawData);
-        };
-
-        ws.OnError += (sender, e) =>
-        {
-            Debug.LogError("Error: " + e.Message);
-        };
-
-        ws.OnClose += (sender, e) =>
-        {
-            Debug.Log($"Connection closed. Code: {e.Code} Reason: {e.Reason}");
-            if (!shouldQuit)
-            {
-                // Try to reconnect after a delay.
-                Invoke("ConnectWebSocket", 5f);
-            }
-        };
-
-        try
-        {
-            ws.ConnectAsync();
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError("Exception during connect: " + ex.Message);
-        }
-    }
 
     float DegToRad(float degrees)
     {
@@ -121,12 +64,12 @@ public class TeleopOmniCommunication : MonoBehaviour
         return (float)Math.IEEERemainder(radians, 2 * Math.PI);
     }
 
-    float RadToDeg(float radians)
+    Vector3 ApplyAbs(Vector3 movement)
     {
-        // Convert degrees to radians
-        double degrees = radians * (180 / Math.PI);
-        // Normalize angle
-        return (float)Math.IEEERemainder(degrees, 360);
+        movement.x = Mathf.Abs(movement.x);
+        movement.y = Mathf.Abs(movement.y);
+        movement.z = Mathf.Abs(movement.z);
+        return movement;
     }
 
     Vector3 ApplyMovingAverage(Vector3 newMovement)
@@ -155,42 +98,27 @@ public class TeleopOmniCommunication : MonoBehaviour
         return Vector3.Scale(stepped, stepDivisor);
     }
 
-    // Rotates sphere so perceived video matches the rotations of dog (delay)
-    // TODO: requires getting the dog's rotation
-    void RotateSphereMatchDog()
+    Vector3 ApplySpeedLimit(Vector3 movement)
     {
-
+        Vector3 mangitude = new Vector3(Mathf.Abs(movement.x), Mathf.Abs(movement.y), Mathf.Abs(movement.z));
+        Vector3 sign = new Vector3(Mathf.Sign(movement.x), Mathf.Sign(movement.y), Mathf.Sign(movement.z));
+        return Vector3.Scale(Vector3.Min(mangitude, speedLimit), sign);
     }
 
-    // Rotates sphere so perceived video matches operator's turning
-    // Instantly rotates
+    // Rotates sphere so forward of operator is always forward of the sphere
     void RotateSphereMatchVirtuix()
     {
-        float diff = degRotation - previousDegRotation;
+        float diff = previousDegRotation - degRotation;
         sphere.Rotate(Vector3.up * diff);
         previousDegRotation = degRotation;
     }
 
-
-
-    void Update()
+    void FixedUpdate()
     {
-        // LIDAR
-        while (lidarDataQueue.TryDequeue(out byte[] lidarBytes))
-        {
-            if (lidarProcessor != null)
-            {
-                lidarProcessor.ProcessLidarData(lidarBytes);
-            }
-            else
-            {
-                Debug.LogWarning("LidarProcessor not set. LiDAR data not processed.");
-            }
-        }
-
-        if (ws == null || !ws.IsAlive)
+        // Check in Virtuix mode
+        if (ControlModeManager.activeMode != ControlMode.Virtuix)
             return;
-
+            
         if (omniMovement != null)
         {
             // Update omni's data
@@ -200,17 +128,19 @@ public class TeleopOmniCommunication : MonoBehaviour
             movement = omniMovement.GetForwardMovement() + omniMovement.GetStrafeMovement();
             debugMovement = movement;
 
+            //movement = ApplyAbs(movement);
             movement = ApplyMovingAverage(movement);
+            movement *= movementMultiplier;
             movement = ApplySteppedMovement(movement);
-            movement *= movementMultiplier;                     // Apply multiplier
-            movement = Vector3.Min(movement, speedLimitVec);    // Apply speed limit
+            movement = ApplySpeedLimit(movement);
 
             // Check movement above threshold
-            if (Math.Abs(movement.x) > movementThreshold) 
+            if (Math.Abs(movement.x) > movementThreshold)
             {
                 noStepCount = 0;
             }
-            else {
+            else
+            {
                 noStepCount += 1;
                 if (noStepCount > noStepThreshold)
                 {
@@ -223,16 +153,18 @@ public class TeleopOmniCommunication : MonoBehaviour
             }
 
             // ROTATION
-            float degRotation = omniMovement.currentOmniYaw;
+            degRotation = omniMovement.currentOmniYaw;
             float radRotation = DegToRad(degRotation);
 
             // Check rotation above threshold
-            if (Math.Abs((float)radRotation - previousRadRotation) > rotationThreshold) {
+            if (Math.Abs((float)radRotation - previousRadRotation) > rotationThreshold)
+            {
                 rotateFlag = true;
                 RotateSphereMatchVirtuix();
                 previousRadRotation = radRotation;
             }
-            else {
+            else
+            {
                 rotateFlag = false;
                 radRotation = previousRadRotation;
             }
@@ -248,8 +180,6 @@ public class TeleopOmniCommunication : MonoBehaviour
                     type = "omni",
                     msg = new
                     {
-                        // In this protocol, we assume the linear motion is along the x-axis.
-                        // Adjust the mapping as needed (e.g. swap axes) to suit your application.
                         linear = new { x = -movement.x, y = 0.0, z = 0.0 },
                         angular = new { x = 0.0, y = 0.0, z = -radRotation },
                         timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
@@ -259,24 +189,14 @@ public class TeleopOmniCommunication : MonoBehaviour
                 string message = JsonConvert.SerializeObject(command);
                 try
                 {
-                    ws.Send(message);
-                    Debug.Log("Sent command: " + message);
+                    WebSocketController.Instance.SendMessageWebsocket(message);
                 }
                 catch (Exception ex)
                 {
                     Debug.LogError("Error sending message: " + ex.Message);
                 }
+                previousMovement = movement;
             }
-            previousMovement = movement;
-        }
-    }
-
-    private void OnDestroy()
-    {
-        shouldQuit = true;
-        if (ws != null)
-        {
-            ws.Close();
         }
     }
 }
