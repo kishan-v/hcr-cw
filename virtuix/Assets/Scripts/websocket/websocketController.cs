@@ -41,9 +41,9 @@ public class WebSocketController : MonoBehaviour
 
         ws.OnMessage += (sender, e) =>
         {
-            // Debug.Log("Received message: " + e.Data);
-            If the queue is full (max 5 items), remove the oldest message.
-            if(lidarDataQueue.Count >= 5)
+            //Debug.Log("Received message: " + e.Data);
+            //If the queue is full(max 5 items), remove the oldest message.
+             if (lidarDataQueue.Count >= 5)
             {
                 Debug.Log("Discarding Lidar");
                 byte[] discarded;

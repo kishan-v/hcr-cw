@@ -10,10 +10,6 @@ using System.Collections.Generic;
 
 public class TeleopOmniCommunication : MonoBehaviour
 {
-    // private WebSocket ws;
-    // private bool shouldQuit = false;
-    // private const string RELAYER_URL = "ws://132.145.67.221:9090";
-
     // Virtuix component (dummy movement component object)
     public OmniMovementComponent omniMovement;
 
@@ -45,13 +41,8 @@ public class TeleopOmniCommunication : MonoBehaviour
     private float degRotation = 0;
     private bool rotateFlag = true;
 
-    //[SerializeField]
-    //private LidarProcessor lidarProcessor;
-
     void Start()
-    {
-        // ConnectWebSocket();
-        
+    {        
         // Initialize the OmniMovementComponent
         omniMovement = GetComponent<OmniMovementComponent>();
         if (omniMovement == null)
@@ -73,12 +64,12 @@ public class TeleopOmniCommunication : MonoBehaviour
         return (float)Math.IEEERemainder(radians, 2 * Math.PI);
     }
 
-    float RadToDeg(float radians)
+    Vector3 ApplyAbs(Vector3 movement)
     {
-        // Convert degrees to radians
-        double degrees = radians * (180 / Math.PI);
-        // Normalize angle
-        return (float)Math.IEEERemainder(degrees, 360);
+        movement.x = Mathf.Abs(movement.x);
+        movement.y = Mathf.Abs(movement.y);
+        movement.z = Mathf.Abs(movement.z);
+        return movement;
     }
 
     Vector3 ApplyMovingAverage(Vector3 newMovement)
@@ -114,27 +105,17 @@ public class TeleopOmniCommunication : MonoBehaviour
         return Vector3.Scale(Vector3.Min(mangitude, speedLimit), sign);
     }
 
-    // Rotates sphere so perceived video matches the rotations of dog (delay)
-    // TODO: requires getting the dog's rotation
-    void RotateSphereMatchDog()
-    {
-
-    }
-
-    // Rotates sphere so perceived video matches operator's turning
-    // Instantly rotates
+    // Rotates sphere so forward of operator is always forward of the sphere
     void RotateSphereMatchVirtuix()
     {
-        float diff = degRotation - previousDegRotation;
+        float diff = previousDegRotation - degRotation;
         sphere.Rotate(Vector3.up * diff);
         previousDegRotation = degRotation;
     }
 
-
-
-    void Update()
+    void FixedUpdate()
     {
-        
+        // Check in Virtuix mode
         if (ControlModeManager.activeMode != ControlMode.Virtuix)
             return;
             
@@ -147,8 +128,9 @@ public class TeleopOmniCommunication : MonoBehaviour
             movement = omniMovement.GetForwardMovement() + omniMovement.GetStrafeMovement();
             debugMovement = movement;
 
+            //movement = ApplyAbs(movement);
             movement = ApplyMovingAverage(movement);
-            movement *= movementMultiplier;                     // Apply multiplier
+            movement *= movementMultiplier;
             movement = ApplySteppedMovement(movement);
             movement = ApplySpeedLimit(movement);
 
@@ -198,9 +180,7 @@ public class TeleopOmniCommunication : MonoBehaviour
                     type = "omni",
                     msg = new
                     {
-                        // In this protocol, we assume the linear motion is along the x-axis.
-                        // Adjust the mapping as needed (e.g. swap axes) to suit your application.
-                        linear = new { x = movement.x, y = 0.0, z = 0.0 },
+                        linear = new { x = -movement.x, y = 0.0, z = 0.0 },
                         angular = new { x = 0.0, y = 0.0, z = -radRotation },
                         timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                     }
@@ -219,5 +199,4 @@ public class TeleopOmniCommunication : MonoBehaviour
             }
         }
     }
-
 }
