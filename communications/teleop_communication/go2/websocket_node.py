@@ -16,6 +16,11 @@ class WebsocketNode(Node):
         self.joystick_pub = self.create_publisher(Twist, '/joystick_cmd', 10)
         self.virtuix_linear_pub = self.create_publisher(Twist, '/virtuix_linear', 10)
         self.virtuix_heading_pub = self.create_publisher(Float64, '/virtuix_heading', 10)
+
+        self.last_keepalive_time = self.get_clock().now()
+        self.keepalive_timeout = 2.0
+        self.locked = False
+        self.keepalive_timer =  self.create_timer(1.0, self.check_keepalive)
         
         self.websocket = None
         self.loop = None
@@ -44,7 +49,7 @@ class WebsocketNode(Node):
 
             # Pack the booleans
             packed_data = packer(msg.data)
-            self.get_logger().info(f"Sending lidar data of size: {len(packed_data)}")
+            # self.get_logger().info(f"Sending lidar data of size: {len(packed_data)}")
 
             # Only send if the websocket is connected.
             if self.websocket is not None:
@@ -88,18 +93,31 @@ class WebsocketNode(Node):
         try:
             data = json.loads(message)
             # Expect data["type"] to be either "joystick" or "virtuix"
+
+            msg_type = data.get("type", "keepalive")
+
+            if msg_type == "keepalive":
+                self.last_keepalive_time = self.get_clock().now()
+                if self.locked:
+                    self.get_logger().info("Keepalive received. Unlocking movement commands.")
+                    self.locked = False
+                return
+
+            if self.locked == True:
+                self.get_logger().warn("System locked, waiting for keep alive...")
+                return
+            
             msg_data = data.get("msg", {})
             linear_x = msg_data.get("linear", {}).get("x", 0.0)
             angular_z = msg_data.get("angular", {}).get("z", 0.0)
-            input_type = data.get("type", "joystick")
             
-            if input_type == "joystick":
+            if msg_type == "joystick":
                 twist = Twist()
                 twist.linear.x = linear_x
                 twist.angular.z = angular_z
                 self.joystick_pub.publish(twist)
                 self.get_logger().info("Published joystick command")
-            elif input_type == "omni":
+            elif msg_type == "omni":
                 # For virtuix commands, treat angular.z as the target absolute heading.
                 twist = Twist()
                 twist.linear.x = linear_x
@@ -112,6 +130,26 @@ class WebsocketNode(Node):
                 self.get_logger().info(f"Published virtuix command: linear {linear_x}, heading {angular_z}")
         except Exception as e:
             self.get_logger().error(f"Error processing message: {e}")
+
+    def check_keepalive(self):
+        now = self.get_clock().now()
+        elapsed = (now - self.last_keepalive_time).nanoseconds / 1e9
+        if elapsed > self.keepalive_timeout:
+                self.get_logger().warn("Keepalive timeout. Locking movement commands.")
+                self.locked = True
+                self.send_stop_command()
+
+    def send_stop_command(self):
+        twist = Twist()
+        twist.linear.x = twist.linear.y = twist.linear.z = 0.0
+        twist.angular.x = twist.angular.y = twist.angular.z = 0.0
+        self.joystick_pub.publish(twist)
+        self.virtuix_linear_pub.publish(twist)
+        self.virtuix_linear_pub.publish(twist)
+        self.get_logger().info("Published stop command due to keepalive timeout.")
+
+
+
 
 def main(args=None):
     rclpy.init(args=args)

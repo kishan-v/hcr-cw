@@ -13,6 +13,8 @@ public class WebSocketController : MonoBehaviour
     // Queue to store incoming LiDAR messages.
     private ConcurrentQueue<byte[]> lidarDataQueue = new ConcurrentQueue<byte[]>();
     private bool shouldQuit = false;
+    private float keepAliveInterval = 1.0f;
+    private float lastKeepAliveTime;
 
     void Awake()
     {
@@ -39,18 +41,18 @@ public class WebSocketController : MonoBehaviour
 
         ws.OnMessage += (sender, e) =>
         {
-            //Debug.Log("Received message: " + e.Data);
-            // If the queue is full (max 5 items), remove the oldest message.
-            // if(lidarDataQueue.Count >= 5)
-            // {
-            //     Debug.Log("Discarding Lidar");
-            //     byte[] discarded;
-            //     lidarDataQueue.TryDequeue(out discarded);
-            // }
-            // // Enqueue the new LiDAR data.
-            // lidarDataQueue.Enqueue(e.RawData);
+            // Debug.Log("Received message: " + e.Data);
+            If the queue is full (max 5 items), remove the oldest message.
+            if(lidarDataQueue.Count >= 5)
+            {
+                Debug.Log("Discarding Lidar");
+                byte[] discarded;
+                lidarDataQueue.TryDequeue(out discarded);
+            }
+            // Enqueue the new LiDAR data.
+            lidarDataQueue.Enqueue(e.RawData);
 
-            lidarProcessor.ProcessLidarData(e.RawData);
+            // lidarProcessor.ProcessLidarData(e.RawData);
         };
 
         ws.OnError += (sender, e) =>
@@ -90,14 +92,36 @@ public class WebSocketController : MonoBehaviour
         }
     }
 
-    // void Update()
-    // {
-    //     // Process one LiDAR message per frame
-    //     if (lidarProcessor != null && lidarDataQueue.TryDequeue(out byte[] lidarData))
-    //     {
-    //         lidarProcessor.ProcessLidarData(lidarData);
-    //     }
-    // }
+
+    public void SendKeepAlive()
+    {
+        // Minimal keepalive message payload.
+        string keepAliveMessage = "{\"type\": \"keepalive\"}";
+        if (ws != null && ws.IsAlive)
+        {
+            ws.Send(keepAliveMessage);
+            Debug.Log("Sent keepalive message");
+        }
+    }
+
+
+    void Update()
+    {
+        // Process one LiDAR message per frame
+        if (lidarProcessor != null && lidarDataQueue.TryDequeue(out byte[] lidarData))
+        {
+            lidarProcessor.ProcessLidarData(lidarData);
+        }
+
+        if (ws != null && ws.IsAlive)
+        {
+            if (Time.time - lastKeepAliveTime >= keepAliveInterval)
+            {
+                SendKeepAlive();
+                lastKeepAliveTime = Time.time;
+            }
+        }
+    }
 
     void OnDestroy()
     {
