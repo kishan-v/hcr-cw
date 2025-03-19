@@ -21,7 +21,7 @@ if os.name == 'nt':
 else:
     import fcntl
 
-shape = (480, 640, 3)
+shape = (960, 1920, 3)
 size = np.prod(shape)
 
 shm = shared_memory.SharedMemory(name="frame_buffer")

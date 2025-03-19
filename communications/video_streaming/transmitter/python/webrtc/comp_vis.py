@@ -5,9 +5,9 @@ import time
 import ast
 import cv2
 
-VENV_PYTHON = "./communications/video_streaming/.venv/scripts/python"
+VENV_PYTHON = "./communications/video_streaming/.venv/bin/python"
 
-CHILD_SCRIPT = "./communications/video_streaming/transmitter/python/webrtc/child.py"
+CHILD_SCRIPT = "./communications/video_streaming/transmitter/python/webrtc/YOLO_pipeline.py"
 
 
 class annotation:
