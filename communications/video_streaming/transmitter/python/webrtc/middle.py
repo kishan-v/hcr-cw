@@ -5,7 +5,7 @@ import time
 import ast
 import cv2
 
-VENV_PYTHON = "./communications/video_streaming/.venv/bin/python"
+VENV_PYTHON = "./communications/video_streaming/.venv/scripts/python"
 
 CHILD_SCRIPT = "./communications/video_streaming/transmitter/python/webrtc/child.py"
 
@@ -45,7 +45,7 @@ class annotation:
             # Assuming line is a list of keypoints as a string
             try:
                 keypoints = ast.literal_eval(line) # Convert the output to a list of keypoints
-                self.last_yolo_results = keypoints
+                self.last_yolo_results = keypoints[0]
             except Exception as e:
                 print(f"ERROR   Error processing output: {e}")
 
@@ -55,12 +55,12 @@ class annotation:
             head = keypoints[0] if len(keypoints) > 0 else None  # Nose (Head)
             right_wrist = keypoints[9] if len(keypoints) > 9 else None  # Right wrist
             left_wrist = keypoints[10] if len(keypoints) > 10 else None  # Left wrist
-
             hand_raised = False
 
-            head_x, head_y = map(int, head[:2])  # Extract x, y
-            r_wrist_x, r_wrist_y = map(int, right_wrist[:2])  # Extract x, y
-            l_wrist_x, l_wrist_y = map(int, left_wrist[:2])  # Extract x, y
+            head_x, head_y = map(int, head)  # Extract x, y
+            r_wrist_x, r_wrist_y = map(int, right_wrist)  # Extract x, y
+            l_wrist_x, l_wrist_y = map(int, left_wrist)  # Extract x, y
+
 
             if l_wrist_y != 0 and l_wrist_y < head_y:
                 hand_raised = True
@@ -68,11 +68,11 @@ class annotation:
             if r_wrist_y != 0 and r_wrist_y < head_y:
                 hand_raised = True
 
+
             if hand_raised:
-                with self.lock:  # Lock to safely modify the frame
                     cv2.putText(
                         frame,
-                        "Requires Attention",
+                        "HELP!",
                         (head_x - 40, head_y - 20),  # Position slightly above the head
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.8,
@@ -89,10 +89,13 @@ class annotation:
     def annotate(self, frame):
         with self.lock:  # Lock to safely access last_yolo_results
             if self.last_yolo_results:
-                for result in self.last_yolo_results:
-                    x, y = int(result[0]), int(result[1])
-                    cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)  # Draw keypoints
-                    
-                    #frame = self.gesture_hand_raise(result, frame)
+                for person in self.last_yolo_results:
+                    for keypoint in person:
 
-        return frame
+                        x, y = int(keypoint[0]), int(keypoint[1])
+                        cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)  # Draw keypoints
+                        
+                    if len(person) > 1:
+                        frame = self.gesture_hand_raise(person, frame)
+
+            return frame

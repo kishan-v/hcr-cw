@@ -50,9 +50,14 @@ def process_frame():
         fcntl.flock(lock_file, fcntl.LOCK_UN)
 
     results = model(frame, verbose=False)  # Run YOLO
+
+    out_lst = []
     for result in results:
+        tmp_list = []
         for keypoints in result.keypoints.xy:
-            print(keypoints.tolist(), flush=True)  # Output keypoints
+            tmp_list.append(keypoints.tolist())
+        out_lst.append(tmp_list)
+    print(out_lst, flush=True)  # Output keypoints
 
 def yolo_worker():
     """Continuously process frames with FPS cap logic."""

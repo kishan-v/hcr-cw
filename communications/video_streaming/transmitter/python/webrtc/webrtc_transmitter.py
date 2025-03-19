@@ -24,16 +24,16 @@ from websocket_signaling import WebSocketSignaling
 import numpy as np
 
 
-WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
-TURN_SERVER_URI = "turn:130.162.176.219:3478"
-DEFAULT_VIDEO_SOURCE = "webcam"  # "webcam" or "theta". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
+#WEBSOCKET_SIGNALLING_URI = "ws://130.162.176.219:8765"
+#TURN_SERVER_URI = "turn:130.162.176.219:3478"
+#DEFAULT_VIDEO_SOURCE = "webcam"  # "webcam" or "theta". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
 
 # Dhruv's Oracle Server
-# WEBSOCKET_SIGNALLING_URI = "ws://132.145.67.221:8765"
-# TURN_SERVER_URI = "turn:132.145.67.221:3478"
+WEBSOCKET_SIGNALLING_URI = "ws://132.145.67.221:8765"
+TURN_SERVER_URI = "turn:132.145.67.221:3478"
 
 MP4_SOURCE = "test_video.mp4"
-DEFAULT_VIDEO_SOURCE = "theta"  # "webcam" or "theta" or "mp4". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
+DEFAULT_VIDEO_SOURCE = "webcam"  # "webcam" or "theta" or "mp4". Can also be specified as a command-line argument: e.g. "python3 webrtc_transmitter.py -d webcam"  # noqa: E501
 
 
 COMP_VIS_MODE = True  # WARNING: Comp. vis. integration is subject to change. It has not been tested properly and may introduce latency.
