@@ -17,7 +17,7 @@ public class TeleopJoystickCommunication : MonoBehaviour
     // Deadzone threshold
     public float deadzone = 0.1f;
 
-    void FixedUpdate()
+    void Update()
     {
 
         if (ControlModeManager.activeMode != ControlMode.Joystick)
