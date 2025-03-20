@@ -14,7 +14,7 @@ public class WebSocketController : MonoBehaviour
     private ConcurrentQueue<byte[]> lidarDataQueue = new ConcurrentQueue<byte[]>();
     private bool shouldQuit = false;
     private float keepAliveInterval = 1.0f;
-    private float lastKeepAliveTime;
+    // private float lastKeepAliveTime;
 
     void Awake()
     {
@@ -23,6 +23,7 @@ public class WebSocketController : MonoBehaviour
             Instance = this;
             DontDestroyOnLoad(gameObject);
             ConnectWebSocket();
+            StartCoroutine(KeepAliveCoroutine());
         }
         else
         {
@@ -79,6 +80,19 @@ public class WebSocketController : MonoBehaviour
         }
     }
 
+    IEnumerator KeepAliveCoroutine()
+    {
+        while (!shouldQuit)
+        {
+            if (ws != null && ws.IsAlive)
+            {
+                string keepAliveMessage = "{\"type\": \"keepalive\"}";
+                SendMessageWebsocket(keepAliveMessage);
+            }
+            yield return new WaitForSeconds(keepAliveInterval);
+        }
+    }
+
     public void SendMessageWebsocket(string message)
     {
         if (ws != null && ws.IsAlive)
@@ -101,15 +115,15 @@ public class WebSocketController : MonoBehaviour
             lidarProcessor.ProcessLidarData(lidarData);
         }
 
-        if (ws != null && ws.IsAlive)
-        {
-            if (Time.time - lastKeepAliveTime >= keepAliveInterval)
-            {
-                string keepAliveMessage = "{\"type\": \"keepalive\"}";
-                SendMessageWebsocket(keepAliveMessage);
-                lastKeepAliveTime = Time.time;
-            }
-        }
+        // if (ws != null && ws.IsAlive)
+        // {
+        //     if (Time.time - lastKeepAliveTime >= keepAliveInterval)
+        //     {
+        //         string keepAliveMessage = "{\"type\": \"keepalive\"}";
+        //         SendMessageWebsocket(keepAliveMessage);
+        //         lastKeepAliveTime = Time.time;
+        //     }
+        // }
     }
 
     void OnDestroy()
