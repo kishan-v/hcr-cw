@@ -49,7 +49,7 @@ def process_frame():
     else:
         fcntl.flock(lock_file, fcntl.LOCK_UN)
 
-    results = model(frame, verbose=False, device="cuda", conf=0.2)  # Run YOLO
+    results = model(frame, verbose=False, conf=0.2)  # Run YOLO
 
     out_lst = []
     for result in results:

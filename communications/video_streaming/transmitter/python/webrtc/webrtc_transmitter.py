@@ -88,7 +88,7 @@ class VideoCameraTrack(MediaStreamTrack):
 
         # self.window_name = "Local Preview"
         # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-
+        global COMP_VIS_MODE
         if COMP_VIS_MODE:
             try:
                 self.compVis = annotation()
