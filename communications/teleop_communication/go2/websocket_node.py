@@ -99,6 +99,13 @@ class WebsocketNode(Node):
                 twist.angular.z = angular_z
                 self.joystick_pub.publish(twist)
                 self.get_logger().info("Published joystick command")
+            elif input_type == "RTT":
+                if self.websocket is not None:
+                    # Forward the raw string without additional serialization.
+                    asyncio.run_coroutine_threadsafe(
+                        self.websocket.send(message),
+                        self.loop
+                    )
             elif input_type == "omni":
                 # For virtuix commands, treat angular.z as the target absolute heading.
                 twist = Twist()
