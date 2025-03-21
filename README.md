@@ -40,6 +40,10 @@ Advik Chitre, Nik Lewis, Johanna Quinn and Cristina Fray worked primarily on Vir
 #### Nik Lewis
 Worked on the initial data extraction from the Virtuix Omni, seen in `./virtuix/Assets/Scripts/Control/TeleopVirtuixCommunication.cs`. Also added LiDAR bitpacking to `LidarListener.py` and `LidarProcessor.cs`. 
 
+#### Cristina Fray
+- Implementing live video spherical object into Unity to view 360 degree camera feed in VR.
+- Map and instructions for repeatable, reproducible and valid testing of simulated search-and-rescue mission, seen in `./evaluation', where both user and Bernie team instructions are clearly outlined. Testing and evaluation of 8 participants.
+-  LiDAR calibration and block shader to optimise visual effects on VR.
 ---
 
 ### Communications
