@@ -340,9 +340,9 @@ class LidarProcessor(Node):
 
         self.offset = np.array([pos.x, pos.y, pos.z])
 
-        d = np.array([2 * (orientation.x * orientation.z + orientation.y * orientation.w), 2 * (orientation.y * orientation.z - orientation.x * orientation.w), 1 - 2 * (orientation.x **2 + orientation.y **2)])
+        d = np.array([2 * (orientation.x * orientation.z + orientation.y * orientation.w), 1 - 2 * (orientation.x **2 + orientation.z **2)])
 
-        self.dog_rotation = np.arctan2(d[1], d[0])
+        self.dog_rotation = np.arctan2(d[0], d[1])
 
         print(f"Dog Rotation: {self.dog_rotation}")
 
