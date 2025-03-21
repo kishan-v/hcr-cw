@@ -19,3 +19,6 @@ Benedict Short, JJ Lu Hilson and Michael Johnston worked together to develop the
 
 #### Benedict Short
 Developed the containerized Lidar Post-Processing Pipeline on the Dog and in Unity. The containerized post-processing application and setup guide is found under `./unitree_go2/lidar/LidarListener.py`, and the equivalent script in Unity is found under `./virtuix/Assets/Scripts/Lidar/LidarProcessor.cs`.
+
+#### Nik Lewis
+Worked on the initial data extraction from the Virtuix Omni, seen in `./virtuix/Assets/Scripts/Control/TeleopVirtuixCommunication.cs`. Added LiDAR bitpacking to `LidarListener.py` and `LidarProcessor.cs`. 
