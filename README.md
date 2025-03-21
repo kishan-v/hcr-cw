@@ -21,10 +21,11 @@ ___
 Advik Chitre, Nik Lewis, Johanna Quinn and Cristina Fray worked primarily on Virtuix side, working to obtain reliable data to control the quadruped robot with. 
 
 #### Advik Chitre
-- Virtuix mapping & movement processing
-- Joystick mapping
-- Alignment between LiDAR, video, and operator Unity
-- Recording virtuix data and simulating processing
+- Virtuix mapping in `./virtuix/Assets/Scripts/Control/TeleopVirtuixCommunication.cs`
+- movement processing for smooth walking in `./virtuix/Assets/Scripts/Control/TeleopVirtuixCommunication.cs`
+- Joystick mapping with SteamVR & `./virtuix/Assets/Scripts/Control/TeleopJoystickCommunication.cs`
+- Alignment between LiDAR, video, and operator Unity in teleop scripts & `./virtuix/Assets/Scripts/Control/JoystickTurn.cs`
+- Recording virtuix data and simulating processing in `./virtuix/Assets/Scripts/Control/VirtuixRecord.cs` & `./virtuix/Simulation`
 
 #### Nik Lewis
 Worked on the initial data extraction from the Virtuix Omni, seen in `./virtuix/Assets/Scripts/Control/TeleopVirtuixCommunication.cs`. Also added LiDAR bitpacking to `LidarListener.py` and `LidarProcessor.cs`. 
