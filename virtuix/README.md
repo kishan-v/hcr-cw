@@ -4,17 +4,21 @@
 
 If there are any compile errors on startup, click `ignore`
 
-#### 2. Select control method
+#### 2. Equipment
 
-To switch between joystick control and virtuix control, enable/disable `virtuixDummyObject` at the top of the inspector and disable/enable `TeleopJoystickCommunication` in a single controller (currently, only a single websocket works at one time)
+Ensure all equipment is turned on and controller bindings are set to `Bernie` configuration in `Window > SteamVR Input > Open Bindings` (map touchpad and trigger).
 
 #### 3. Run
 
-Before starting one of the server nodes, the unity program needs to be run
+After starting one of the server nodes, the unity program needs to be run
 
-#### 4. Stop, edit, restart to switch control method
+#### 4. Change control method
 
-Repeat 2 onwards to change control method
+| Key   | Action Description              |
+|-------|---------------------------------|
+| X     | No movement (default)           |
+| V     | Virtuix                         |
+| J     | Joystick                        |
 
 ---
 
