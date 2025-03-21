@@ -28,3 +28,12 @@ Advik Chitre, Nik Lewis, Johanna Quinn and Cristina Fray worked primarily on Vir
 
 #### Nik Lewis
 Worked on the initial data extraction from the Virtuix Omni, seen in `./virtuix/Assets/Scripts/Control/TeleopVirtuixCommunication.cs`. Also added LiDAR bitpacking to `LidarListener.py` and `LidarProcessor.cs`. 
+
+---
+### Communications
+
+#### Dhruv Devgan Sharma
+- Websocket communication between Unity and GO2 for movement commands and LiDAR data `./communications/teleop_communication/`.
+- GO2 movement controllers `./communications/teleop_communication/go2/virtuix_controller_node.py`. and `./communications/teleop_communication/go2/joystick_controller.py`.
+- ROS2 Go2 simulation setup as seen in `./communications/teleop_communication/simulation`
+- Attempt to switch LiDAR data to webRTC on `merge-communications` branch.
