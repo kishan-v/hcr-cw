@@ -14,7 +14,7 @@ ___
 ### Dog
 Benedict Short and JJ Lu Hilson worked together to develop the dog platform and provide a collection of ROS2 topics that the Communications team could continuously integrate with. Data was collected from the dog to provide offline support for continuous integration outside of lab hours. The responsibilites are outlined below:
 
-### JJ Lu-Hilson
+#### JJ Lu-Hilson
 Developed the overall system within `./unitree_go2/` including the main Makefile system, the Dockerfiles including the Unitree dependencies to have control over the dog, and development of the dog_interface ROS package to actually control the dog.
 
 #### Benedict Short
@@ -44,6 +44,14 @@ Worked on the initial data extraction from the Virtuix Omni, seen in `./virtuix/
 - Implementing live video spherical object into Unity to view 360 degree camera feed in VR.
 - Map and instructions for repeatable, reproducible and valid testing of simulated search-and-rescue mission, seen in `./evaluation', where both user and Bernie team instructions are clearly outlined. Testing and evaluation of 8 participants.
 -  LiDAR calibration and block shader to optimise visual effects on VR.
+
+#### Johanna Quinn
+- Implemented first 360 video in Unity for initial testing with VR headset and streamVR
+- Recording reproducible and valid testing of simulated search-and-rescue mission, seen in `./evaluation'
+- Collected data and processed it for discussion and evaluation, seen in './test_data'
+- Coordinated with staff and test participants for availability and made sure everything was covered by a risk assesment
+- Testing and evaluation of 8 participants
+
 ---
 
 ### Communications
