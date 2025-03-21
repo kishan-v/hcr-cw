@@ -5,6 +5,7 @@
 - [Video Streaming](/communications/video_streaming/README.md)
 - [Teleoperation Communication](/communications/teleop_communication/README.md)
 - [Unity](/virtuix/README.md)
+- [Lidar](/unitree_go2/lidar/README.md)
 
 ## Responsibilities
 The team was split into three core subteams: Dog (formally the Unitree Go2 Edu), Communication and Virtuix. These are outlined below, though collaboration between teams was frequent and some team members worked on more than one component. 
