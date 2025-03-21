@@ -12,6 +12,9 @@ ___
 ### Dog
 Benedict Short and JJ Lu Hilson worked together to develop the dog platform and provide a collection of ROS2 topics that the Communications team could continuously integrate with. Data was collected from the dog to provide offline support for continuous integration outside of lab hours. The responsibilites are outlined below:
 
+### JJ Lu-Hilson
+Developed the overall system within `./unitree_go2/` including the main Makefile system, the Dockerfiles including the Unitree dependencies to have control over the dog, and development of the dog_interface ROS package to actually control the dog.
+
 #### Benedict Short
 Developed the containerized Lidar Post-Processing Pipeline on the Dog and in Unity. The containerized post-processing application and setup guide are found under `./unitree_go2/lidar/LidarListener.py`, and the equivalent script in Unity is found under `./virtuix/Assets/Scripts/Lidar/LidarProcessor.cs`.
 
